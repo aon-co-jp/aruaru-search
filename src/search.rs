@@ -93,6 +93,30 @@ impl Searcher {
         }))
     }
 
+    /// 検索元を休ませる。拒否や制限が続くほど休む時間を長くする(段階は成功すると最初に戻る)。
+    fn block(&self, def: &EngineDef, reason: &str) {
+        let mut level = 0;
+        let mut secs = COOLDOWN_STEPS[0];
+        if let Ok(mut c) = self.cooldown.lock() {
+            level = c.get(&def.id).map_or(0, |x| (x.1 + 1).min(4));
+            secs = COOLDOWN_STEPS[level as usize];
+            c.insert(
+                def.id.clone(),
+                (Instant::now() + Duration::from_secs(secs), level),
+            );
+        }
+        if let Ok(mut st) = self.status.write() {
+            let s = st.entry(def.id.clone()).or_default();
+            s.blocked_level = level;
+            s.cooldown_until_unix = now_unix() + secs;
+        }
+        eprintln!(
+            "aruaru-search: {} を休ませます({reason}、段階 {level})。{}分間は使いません",
+            def.id,
+            secs / 60
+        );
+    }
+
     /// 全体の健康状態: 使える検索元の数と、休止中の検索元。
     pub fn health(&self) -> serde_json::Value {
         let now = now_unix();
@@ -142,6 +166,8 @@ impl Searcher {
 
     /// 相手に負担をかけないよう、同じ検索元への呼び出しの間隔を空ける。
     async fn polite_wait(&self, id: &str, interval: Duration) {
+        // 一定の間隔だと機械と見分けられやすいので、間隔にゆらぎ(0.8〜1.6倍)を付ける
+        let interval = jitter(interval);
         let wait = {
             let mut m = self.last_call.lock().expect("lock");
             let now = Instant::now();
@@ -186,27 +212,7 @@ impl Searcher {
         // 202 は検索元の「機械による利用の確認」(bot 対策)のページ。結果ではないので、ページの作りの変化とは区別する
         if !status.is_success() || status.as_u16() == 202 {
             if matches!(status.as_u16(), 202 | 403 | 429 | 503) {
-                let mut level = 0;
-                let mut secs = COOLDOWN_STEPS[0];
-                if let Ok(mut c) = self.cooldown.lock() {
-                    level = c.get(&def.id).map_or(0, |x| (x.1 + 1).min(4));
-                    secs = COOLDOWN_STEPS[level as usize];
-                    c.insert(
-                        def.id.clone(),
-                        (Instant::now() + Duration::from_secs(secs), level),
-                    );
-                }
-                if let Ok(mut st) = self.status.write() {
-                    let s = st.entry(def.id.clone()).or_default();
-                    s.blocked_level = level;
-                    s.cooldown_until_unix = now_unix() + secs;
-                }
-                eprintln!(
-                    "aruaru-search: {} に拒否されました(HTTP {}、段階 {level})。{}分間は使いません",
-                    def.id,
-                    status.as_u16(),
-                    secs / 60
-                );
+                self.block(def, &format!("HTTP {}", status.as_u16()));
             }
             bail!(
                 "拒否されました(HTTP {}。混み合い・機械利用の制限の可能性)",
@@ -236,10 +242,17 @@ impl Searcher {
         let result = self.fetch_page(def, q, hl, gl).await;
         let (hits, err, sample) = match result {
             Ok(html) => {
-                let hits = engine::parse(def, &html);
-                let err = hits.is_empty().then(|| {
+                let mut hits = engine::parse(def, &html);
+                let mut err = hits.is_empty().then(|| {
                     "結果を1件も読み取れませんでした(ページの作りが変わった可能性)".to_string()
                 });
+                // 検索語の一部(先頭だけ・末尾だけ)しか反映されない結果は、機械利用を疑われて機能を落とされた
+                // 応答(いわゆる「ソフトブロック」)。誤った結果を返さず、その検索元を休ませる。
+                if err.is_none() && !covers_query(q, &hits) {
+                    self.block(def, "検索語の一部しか反映されない結果");
+                    hits.clear();
+                    err = Some("検索語の一部しか反映されない結果でした(機械利用を疑われて制限されている可能性)".to_string());
+                }
                 (hits, err, Some(html))
             }
             Err(e) => (Vec::new(), Some(format!("{e:#}")), None),
@@ -412,6 +425,47 @@ pub fn blend(items: &mut [Merged], sims: &[f64]) {
         };
         m.score = 0.6 * rank_part + 0.4 * ((s - lo) / span);
     }
+}
+
+/// 間隔にゆらぎ(0.8〜1.6倍)を付ける。乱数のライブラリは使わず、時刻の細かい部分から作る。
+pub fn jitter(d: Duration) -> Duration {
+    let n = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |t| t.subsec_nanos());
+    let permille = 800 + u64::from(n % 800); // 800..1599
+    Duration::from_millis(d.as_millis() as u64 * permille / 1000)
+}
+
+/// 検索語の切り出し(空白区切り。1文字の語・記号だけの語は除く)
+fn query_tokens(q: &str) -> Vec<String> {
+    let mut v: Vec<String> = q
+        .split_whitespace()
+        .map(|s| {
+            s.trim_matches(|c: char| !c.is_alphanumeric())
+                .to_lowercase()
+        })
+        .filter(|s| s.chars().count() >= 2)
+        .collect();
+    v.dedup();
+    v
+}
+
+/// 結果が検索語全体を反映しているか。検索語が2語以上のとき、上位の結果のうち**2つ以上の語**を含むものが
+/// 1件でもあればよい(全部の語を含むことまでは求めない)。1つも無ければ、片方の語だけで検索された疑い。
+/// (2026-09-25 実測: 多数の検索のあと、Bing が「岩手県 渓流釣り」を「岩手県」だけで検索した結果を返した)
+pub fn covers_query(q: &str, hits: &[Hit]) -> bool {
+    let tokens = query_tokens(q);
+    if tokens.len() < 2 || hits.len() < 3 {
+        return true;
+    }
+    hits.iter().take(10).any(|h| {
+        let text: String = format!("{}{}", h.title, h.snippet)
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect::<String>()
+            .to_lowercase();
+        tokens.iter().filter(|t| text.contains(t.as_str())).count() >= 2
+    })
 }
 
 /// 検索結果の同一判定用に URL をそろえる(http/https・www・末尾の / ・#以降の違いを無視)
@@ -589,6 +643,38 @@ mod tests {
         assert_eq!(COOLDOWN_STEPS.len(), 5, "段階は 0〜4");
         assert_eq!(COOLDOWN_STEPS[0], 20 * 60);
         assert_eq!(COOLDOWN_STEPS[4], 24 * 3600);
+    }
+
+    #[test]
+    fn results_covering_only_part_of_the_query_are_detected() {
+        let h = |t: &str, s: &str| hit(t, "https://x.example/", s);
+        // 「岩手県」だけを反映した結果(実測した劣化の例)
+        let degraded = vec![
+            h("岩手県ホームページ トップページ", ""),
+            h("岩手県 - Wikipedia", "岩手県は東北地方の県"),
+            h("【岩手県】観光スポットおすすめ23選", ""),
+        ];
+        assert!(!covers_query(
+            "岩手県 渓流釣り 釣り場 遊漁券 体験",
+            &degraded
+        ));
+        // 両方の語を含む結果が1件でもあれば正常
+        let mut ok = degraded.clone();
+        ok.push(h("岩手県の渓流釣り 遊漁券のご案内", ""));
+        assert!(covers_query("岩手県 渓流釣り 釣り場 遊漁券 体験", &ok));
+        // 1語の検索・結果が少ないときは判定しない
+        assert!(covers_query("温泉", &degraded));
+        assert!(covers_query("岩手県 渓流釣り", &degraded[..2]));
+        // 語の切り出し
+        assert_eq!(query_tokens("山梨県  温泉 a"), vec!["山梨県", "温泉"]);
+    }
+
+    #[test]
+    fn jitter_stays_within_bounds() {
+        for _ in 0..50 {
+            let d = jitter(Duration::from_millis(1000));
+            assert!((800..1600).contains(&(d.as_millis() as u64)), "{d:?}");
+        }
     }
 
     #[test]
