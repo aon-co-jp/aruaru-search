@@ -161,16 +161,8 @@ async fn commit_and_push(tmp: &Path, message: &str) -> Result<Pushed> {
         ],
     )
     .await?;
-    // 別のプロセス(aruaru-search など)が先に push していたら、取り込んでからもう一度
-    if git(tmp, &["push", "--quiet", "origin", "HEAD"])
-        .await
-        .is_err()
-    {
-        git(tmp, &["pull", "--quiet", "--rebase", "origin", "HEAD"])
-            .await
-            .map_err(|e| anyhow!("push が拒否され、取り込みにも失敗しました: {e:#}"))?;
-        git(tmp, &["push", "--quiet", "origin", "HEAD"]).await?;
-    }
+    // 別のプロセスが先に push していたら、ここでは失敗にする(呼び出し側が、取得し直して最初からやり直す)
+    git(tmp, &["push", "--quiet", "origin", "HEAD"]).await?;
     let commit = git(tmp, &["rev-parse", "HEAD"]).await?.trim().to_string();
     Ok(Pushed { changed, commit })
 }
@@ -186,6 +178,29 @@ fn top_dirs(paths: impl Iterator<Item = String>) -> Vec<String> {
 
 /// ファイルを保管庫へ保存(追加・上書き)して push する。
 pub async fn push(repo: &str, files: &[(String, Vec<u8>)], message: &str) -> Result<Pushed> {
+    retry(|| push_once(repo, files, message)).await
+}
+
+/// 同時に別のプロセスが push すると拒否されるので、取得し直して最初からやり直す(最大3回)。
+async fn retry<F, Fut>(mut f: F) -> Result<Pushed>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<Pushed>>,
+{
+    let mut last = anyhow!("未実行");
+    for attempt in 0..3u64 {
+        match f().await {
+            Ok(p) => return Ok(p),
+            Err(e) => {
+                last = e;
+                tokio::time::sleep(std::time::Duration::from_millis(700 * (attempt + 1))).await;
+            }
+        }
+    }
+    Err(last)
+}
+
+async fn push_once(repo: &str, files: &[(String, Vec<u8>)], message: &str) -> Result<Pushed> {
     if files.is_empty() {
         bail!("保存するファイルがありません");
     }

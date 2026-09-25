@@ -27,7 +27,26 @@ use crate::search::{now_unix, Searcher};
 pub const CANARIES: &[(&str, &str, &str)] = &[
     ("open source software", "en", "US"),
     ("山梨県 温泉", "ja", "JP"),
+    ("서울 맛집", "ko", "KR"),
+    ("北京 温泉", "zh-CN", "CN"),
 ];
+
+/// この検索元の点検に使う見本の検索。得意な言語が決まっている検索元(日本向け・韓国向け・中国向け)は、その言語で。
+/// 全言語向けの検索元は、英語と日本語で。
+pub fn canaries_for(def: &EngineDef) -> Vec<(&'static str, &'static str, &'static str)> {
+    CANARIES
+        .iter()
+        .copied()
+        .filter(|(_, hl, _)| {
+            let code = crate::lang::resolve(hl, "").code;
+            if def.langs.is_empty() {
+                matches!(code, "en" | "ja")
+            } else {
+                def.favours(code)
+            }
+        })
+        .collect()
+}
 const MIN_HITS: usize = 3;
 const HTML_BUDGET: usize = 14_000;
 
@@ -326,6 +345,8 @@ pub async fn repair(
 }
 
 /// 全ての検索元を点検し、読み取れないものは AI で直す。結果の要約(1行ずつ)を返す。
+/// AI が直した設定は、新しく取得したページでもう一度確かめ、読み取れなければ**元の設定に戻す**
+/// (提案が手元の1枚のページにだけ合っていて、実際には使えない場合に、動いている検索元を壊さないため)。
 pub async fn selfcheck(
     s: &Arc<Searcher>,
     http: &reqwest::Client,
@@ -335,9 +356,13 @@ pub async fn selfcheck(
     let defs: Vec<EngineDef> = s.engines.read().map(|e| e.clone()).unwrap_or_default();
     let mut report = Vec::new();
     for def in defs.iter().filter(|d| d.enabled) {
+        let canaries = canaries_for(def);
+        if canaries.is_empty() {
+            continue;
+        }
         let mut broken: Option<(String, String)> = None;
         let mut ok_count = 0;
-        for (q, hl, gl) in CANARIES {
+        for (q, hl, gl) in &canaries {
             match s.query_engine(def, q, hl, gl).await {
                 Ok(h) if h.len() >= MIN_HITS => ok_count += 1,
                 Ok(_) | Err(_) => {
@@ -352,39 +377,58 @@ pub async fn selfcheck(
             }
         }
         match broken {
-            None => report.push(format!("{}: 正常({ok_count}/{})", def.id, CANARIES.len())),
+            None => report.push(format!("{}: 正常({ok_count}/{})", def.id, canaries.len())),
             Some((html, q)) if !html.is_empty() => {
                 let fixed = repair(s, http, llm_base, dir, def, &html, &q).await;
-                report.push(format!(
-                    "{}: 読み取れず → {}",
-                    def.id,
-                    if fixed {
-                        "AI が設定を修正"
-                    } else {
-                        "修正できず(maintenance.log を確認)"
+                if !fixed {
+                    report.push(format!(
+                        "{}: 読み取れず → 修正できず(maintenance.log を確認)",
+                        def.id
+                    ));
+                    continue;
+                }
+                // 直した設定を、新しく取得したページでもう一度確かめる
+                let (cq, chl, cgl) = canaries[0];
+                let confirmed = match s.engine(&def.id) {
+                    Some(d2) => s
+                        .query_engine(&d2, cq, chl, cgl)
+                        .await
+                        .is_ok_and(|h| h.len() >= MIN_HITS),
+                    None => false,
+                };
+                if confirmed {
+                    report.push(format!("{}: 読み取れず → AI が設定を修正(確認 OK)", def.id));
+                } else {
+                    // 元に戻す
+                    if let Ok(mut engines) = s.engines.write() {
+                        if let Some(slot) = engines.iter_mut().find(|e| e.id == def.id) {
+                            *slot = def.clone();
+                        }
+                        let _ = save_engines(dir, &engines);
                     }
-                ));
-                if fixed {
-                    // 直した設定で、もう一度確かめる
-                    if let Some(d2) = s.engine(&def.id) {
-                        let again = s
-                            .query_engine(&d2, CANARIES[0].0, CANARIES[0].1, CANARIES[0].2)
-                            .await;
-                        report.push(format!(
-                            "{}: 修正後の確認 {}",
-                            def.id,
-                            if again.is_ok() { "OK" } else { "NG" }
-                        ));
-                    }
+                    record(
+                        s,
+                        dir,
+                        &def.id,
+                        "rolled_back",
+                        "AI が直した設定は、新しく取得したページでは読み取れなかったため、元の設定に戻しました",
+                    )
+                    .await;
+                    report.push(format!(
+                        "{}: AI の修正は確認できず、元の設定に戻しました",
+                        def.id
+                    ));
                 }
             }
             Some(_) => {
-                log_line(
+                record(
+                    s,
                     dir,
                     &def.id,
                     "unreachable",
                     "ページを取得できませんでした(接続失敗・拒否)",
-                );
+                )
+                .await;
                 report.push(format!("{}: 取得できず(接続失敗または拒否)", def.id));
             }
         }
