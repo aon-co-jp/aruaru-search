@@ -11,7 +11,8 @@
     "weight": 1.0,
     "enabled": false,
     "langs": [],
-    "only_langs": false
+    "only_langs": false,
+    "link_attr": ""
   },
   {
     "id": "bing",
@@ -25,7 +26,8 @@
     "weight": 1.0,
     "enabled": true,
     "langs": [],
-    "only_langs": false
+    "only_langs": false,
+    "link_attr": ""
   },
   {
     "id": "brave",
@@ -39,7 +41,8 @@
     "weight": 0.9,
     "enabled": true,
     "langs": [],
-    "only_langs": false
+    "only_langs": false,
+    "link_attr": ""
   },
   {
     "id": "mojeek",
@@ -53,7 +56,8 @@
     "weight": 0.8,
     "enabled": false,
     "langs": [],
-    "only_langs": false
+    "only_langs": false,
+    "link_attr": ""
   },
   {
     "id": "yahoo-jp",
@@ -68,6 +72,41 @@
     "enabled": true,
     "langs": [
       "ja"
+    ],
+    "only_langs": true,
+    "link_attr": ""
+  },
+  {
+    "id": "daum",
+    "name": "Daum",
+    "url": "https://search.daum.net/search?q={q}",
+    "container": "c-doc-web",
+    "title": "c-title",
+    "link": "c-title",
+    "link_attr": "data-href",
+    "snippet": "c-contents-desc",
+    "unwrap": "",
+    "weight": 1.0,
+    "enabled": true,
+    "langs": [
+      "ko"
+    ],
+    "only_langs": true
+  },
+  {
+    "id": "baidu",
+    "name": "Baidu",
+    "url": "https://www.baidu.com/s?wd={q}&ie=utf-8",
+    "container": "div.result.c-container",
+    "title": "h3",
+    "link": "h3 a",
+    "link_attr": "@mu",
+    "snippet": "[class*=\"content-right\"], .c-abstract, .c-span-last",
+    "unwrap": "",
+    "weight": 1.0,
+    "enabled": true,
+    "langs": [
+      "zh"
     ],
     "only_langs": true
   }

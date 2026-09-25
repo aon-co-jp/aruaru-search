@@ -19,6 +19,10 @@ pub struct EngineDef {
     pub title: String,
     pub link: String,
     pub snippet: String,
+    /// リンクの URL を読む属性。空なら link 要素の `href`。`data-href` のように別の属性も、`@mu` のように
+    /// 結果のかたまり(container)自身の属性も指定できる
+    #[serde(default)]
+    pub link_attr: String,
     /// 転送 URL(例: DuckDuckGo の `uddg`)から本来の URL を取り出すためのパラメータ名。無ければ空
     #[serde(default)]
     pub unwrap: String,
@@ -132,6 +136,14 @@ impl EngineDef {
             Selector::parse(sel)
                 .map_err(|e| anyhow!("{name} のセレクタが正しくありません: {e:?}"))?;
         }
+        if self.link_attr.len() > 40
+            || !self
+                .link_attr
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '@'))
+        {
+            bail!("link_attr が正しくありません");
+        }
         if !(0.0..=2.0).contains(&self.weight) {
             bail!("weight は 0〜2 です");
         }
@@ -222,7 +234,18 @@ pub fn parse(def: &EngineDef, html: &str) -> Vec<Hit> {
         else {
             continue;
         };
-        let Some(href) = c.select(&link).next().and_then(|a| a.value().attr("href")) else {
+        let href = match def.link_attr.strip_prefix('@') {
+            Some(name) => c.value().attr(name),
+            None => {
+                let attr = if def.link_attr.is_empty() {
+                    "href"
+                } else {
+                    def.link_attr.as_str()
+                };
+                c.select(&link).next().and_then(|a| a.value().attr(attr))
+            }
+        };
+        let Some(href) = href else {
             continue;
         };
         let url = unwrap_redirect(href, &def.unwrap);

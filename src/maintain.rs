@@ -107,10 +107,11 @@ pub fn prompt(def: &EngineDef, query: &str, structure: &str) -> String {
          - container: 検索結果1件ぶんを囲む要素(広告・関連検索・「もっと見る」は含めない)\n\
          - title / link: container の中のタイトルとリンク(link は href を持つ a 要素)\n\
          - snippet: container の中の要約(無ければ空文字)\n\
+         - link_attr: URL が href ではなく別の属性(例 data-href)にあるときはその名前、container 自身の属性にあるときは @名前(例 @mu)。通常は空文字
          - unwrap: link の href が転送URLのとき、本来のURLが入っているクエリ名(例 uddg)。不要なら空文字\n\
          - セレクタは標準的な CSS(:has や :not は使ってよい)。JavaScript が必要でページに結果が無いときは {{\"give_up\":true}} だけ返す\n\
          出力は JSON オブジェクト1つだけ(説明・コードブロック不要):\n\
-         {{\"container\":\"...\",\"title\":\"...\",\"link\":\"...\",\"snippet\":\"...\",\"unwrap\":\"\"}}\n\n\
+         {{\"container\":\"...\",\"title\":\"...\",\"link\":\"...\",\"snippet\":\"...\",\"link_attr\":\"\",\"unwrap\":\"\"}}\n\n\
          ページ構造:\n{structure}",
         name = def.name,
         container = def.container,
@@ -150,6 +151,9 @@ pub fn apply_proposal(current: &EngineDef, proposal: &Json) -> Result<EngineDef>
             Some(v) if !v.is_empty() || field == "snippet" => *slot = v,
             _ => bail!("提案に {field} がありません"),
         }
+    }
+    if let Some(a) = s("link_attr") {
+        cand.link_attr = a;
     }
     if let Some(u) = s("unwrap") {
         if !u
