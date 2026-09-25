@@ -94,11 +94,11 @@ impl Searcher {
     }
 
     /// 検索元を休ませる。拒否や制限が続くほど休む時間を長くする(段階は成功すると最初に戻る)。
-    fn block(&self, def: &EngineDef, reason: &str) {
+    fn block(&self, def: &EngineDef, reason: &str, max_level: u32) {
         let mut level = 0;
         let mut secs = COOLDOWN_STEPS[0];
         if let Ok(mut c) = self.cooldown.lock() {
-            level = c.get(&def.id).map_or(0, |x| (x.1 + 1).min(4));
+            level = c.get(&def.id).map_or(0, |x| (x.1 + 1).min(max_level));
             secs = COOLDOWN_STEPS[level as usize];
             c.insert(
                 def.id.clone(),
@@ -212,7 +212,7 @@ impl Searcher {
         // 202 は検索元の「機械による利用の確認」(bot 対策)のページ。結果ではないので、ページの作りの変化とは区別する
         if !status.is_success() || status.as_u16() == 202 {
             if matches!(status.as_u16(), 202 | 403 | 429 | 503) {
-                self.block(def, &format!("HTTP {}", status.as_u16()));
+                self.block(def, &format!("HTTP {}", status.as_u16()), 4);
             }
             bail!(
                 "拒否されました(HTTP {}。混み合い・機械利用の制限の可能性)",
@@ -249,7 +249,8 @@ impl Searcher {
                 // 検索語の一部(先頭だけ・末尾だけ)しか反映されない結果は、機械利用を疑われて機能を落とされた
                 // 応答(いわゆる「ソフトブロック」)。誤った結果を返さず、その検索元を休ませる。
                 if err.is_none() && !covers_query(q, &hits) {
-                    self.block(def, "検索語の一部しか反映されない結果");
+                    // 拒否より軽い制限なので、休むのは最長3時間(段階2)まで
+                    self.block(def, "検索語の一部しか反映されない結果", 2);
                     hits.clear();
                     err = Some("検索語の一部しか反映されない結果でした(機械利用を疑われて制限されている可能性)".to_string());
                 }
