@@ -235,12 +235,30 @@ pub fn save_engines(dir: &Path, engines: &[EngineDef]) -> Result<()> {
     Ok(())
 }
 
+/// 保存済みの設定に、既定の設定を合わせる: 保存に無い検索元(新しく追加したもの)を足し、保存の版が既定より古いものは
+/// 既定に置き換える(コードで直した設定を反映するため)。AI が直した設定は、版が同じなら残す。保存だけにある検索元も残す。
+pub fn merge_defaults(saved: Vec<EngineDef>) -> Vec<EngineDef> {
+    let mut out: Vec<EngineDef> = Vec::new();
+    for d in engine::defaults() {
+        match saved.iter().find(|s| s.id == d.id) {
+            Some(s) if s.rev >= d.rev => out.push(s.clone()),
+            _ => out.push(d),
+        }
+    }
+    for s in saved {
+        if !out.iter().any(|e| e.id == s.id) {
+            out.push(s);
+        }
+    }
+    out
+}
+
 pub fn load_engines(dir: &Path) -> Vec<EngineDef> {
     let saved: Option<Vec<EngineDef>> = std::fs::read(dir.join("engines.json"))
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok());
     match saved {
-        Some(v) if !v.is_empty() && v.iter().all(|e| e.validate().is_ok()) => v,
+        Some(v) if !v.is_empty() && v.iter().all(|e| e.validate().is_ok()) => merge_defaults(v),
         _ => engine::defaults(),
     }
 }
@@ -498,6 +516,47 @@ mod tests {
         let j = extract_json("説明です\n```json\n{\"container\":\"a\"}\n```").unwrap();
         assert_eq!(j["container"], "a");
         assert!(extract_json("none").is_none());
+    }
+
+    #[test]
+    fn saved_configs_are_merged_with_new_and_fixed_defaults() {
+        let defaults = engine::defaults();
+        // 保存が古い(新しい検索元が無い・yahoo の版が古い・bing は AI が直した)
+        let mut saved: Vec<EngineDef> = defaults
+            .iter()
+            .filter(|d| d.id != "naver")
+            .cloned()
+            .collect();
+        for s in &mut saved {
+            if s.id == "yahoo-jp" {
+                s.rev = 0;
+                s.container = "div.old".into();
+            }
+            if s.id == "bing" {
+                s.container = "li.repaired-by-ai".into();
+            }
+        }
+        saved.push(EngineDef {
+            id: "custom".into(),
+            ..defaults[0].clone()
+        });
+        let m = merge_defaults(saved);
+        let get = |id: &str| m.iter().find(|e| e.id == id).unwrap();
+        assert!(m.iter().any(|e| e.id == "naver"), "新しい検索元は足される");
+        assert_ne!(
+            get("yahoo-jp").container,
+            "div.old",
+            "版が古い設定は、直した既定に置き換わる"
+        );
+        assert_eq!(
+            get("bing").container,
+            "li.repaired-by-ai",
+            "AI が直した設定は残る"
+        );
+        assert!(
+            m.iter().any(|e| e.id == "custom"),
+            "保存だけにある検索元も残る"
+        );
     }
 
     #[test]

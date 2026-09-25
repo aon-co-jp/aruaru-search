@@ -271,7 +271,7 @@ async fn main() -> std::io::Result<()> {
                             "aruaru-search: GitHub の保存先から検索元の設定 {} 件を読み込みました",
                             saved.len()
                         );
-                        engines = saved;
+                        engines = maintain::merge_defaults(saved);
                     }
                     Ok(_) => {}
                     Err(e) => eprintln!("aruaru-search: {e:#}"),

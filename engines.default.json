@@ -12,7 +12,8 @@
     "enabled": false,
     "langs": [],
     "only_langs": false,
-    "link_attr": ""
+    "link_attr": "",
+    "rev": 0
   },
   {
     "id": "bing",
@@ -27,7 +28,8 @@
     "enabled": true,
     "langs": [],
     "only_langs": false,
-    "link_attr": ""
+    "link_attr": "",
+    "rev": 0
   },
   {
     "id": "brave",
@@ -42,7 +44,8 @@
     "enabled": true,
     "langs": [],
     "only_langs": false,
-    "link_attr": ""
+    "link_attr": "",
+    "rev": 0
   },
   {
     "id": "mojeek",
@@ -57,7 +60,8 @@
     "enabled": false,
     "langs": [],
     "only_langs": false,
-    "link_attr": ""
+    "link_attr": "",
+    "rev": 0
   },
   {
     "id": "yahoo-jp",
@@ -74,7 +78,8 @@
       "ja"
     ],
     "only_langs": true,
-    "link_attr": ""
+    "link_attr": "",
+    "rev": 2
   },
   {
     "id": "daum",
@@ -91,7 +96,8 @@
     "langs": [
       "ko"
     ],
-    "only_langs": true
+    "only_langs": true,
+    "rev": 0
   },
   {
     "id": "baidu",
@@ -108,7 +114,8 @@
     "langs": [
       "zh"
     ],
-    "only_langs": true
+    "only_langs": true,
+    "rev": 0
   },
   {
     "id": "naver",
@@ -125,6 +132,7 @@
     "langs": [
       "ko"
     ],
-    "only_langs": true
+    "only_langs": true,
+    "rev": 0
   }
 ]

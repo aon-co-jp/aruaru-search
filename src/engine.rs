@@ -23,6 +23,10 @@ pub struct EngineDef {
     /// 結果のかたまり(container)自身の属性も指定できる
     #[serde(default)]
     pub link_attr: String,
+    /// 既定の設定の版。コードで既定の設定を直したとき(例: 結果のかたまりの指定を直した)に上げる。
+    /// 保存済みの設定の版が既定より古ければ、既定に置き換える(AI が直した新しい設定は、版が同じなら残す)
+    #[serde(default)]
+    pub rev: u32,
     /// 転送 URL(例: DuckDuckGo の `uddg`)から本来の URL を取り出すためのパラメータ名。無ければ空
     #[serde(default)]
     pub unwrap: String,
