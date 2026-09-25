@@ -13,6 +13,7 @@ mod lang;
 mod languages;
 mod maintain;
 mod search;
+mod store;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -226,8 +227,32 @@ async fn main() -> std::io::Result<()> {
     let dir: PathBuf = std::env::var("ARUARU_SEARCH_DATA_DIR")
         .unwrap_or_else(|_| "data".into())
         .into();
-    let engines = maintain::load_engines(&dir);
+    let mut engines = maintain::load_engines(&dir);
+    // aruaru-db(任意): 保存済みの設定があり、ファイルの設定が無ければそれを使う(VPS の作り直しでも設定を戻せる)
+    let mut store = None;
+    if let Ok(dsn) = std::env::var("ARUARU_SEARCH_DB_DSN") {
+        match store::Store::connect(&dsn).await {
+            Ok(s) => {
+                match s.load_engines().await {
+                    Ok(saved) if !saved.is_empty() && !dir.join("engines.json").exists() => {
+                        println!(
+                            "aruaru-search: aruaru-db から検索元の設定 {} 件を読み込みました",
+                            saved.len()
+                        );
+                        engines = saved;
+                    }
+                    Ok(_) => {}
+                    Err(e) => eprintln!("aruaru-search: {e:#}"),
+                }
+                store = Some(Arc::new(s));
+            }
+            Err(e) => eprintln!("aruaru-search: aruaru-db を使いません({e:#})"),
+        }
+    }
     let searcher = Searcher::new(engines).expect("HTTP クライアントを作れません");
+    if let Ok(mut w) = searcher.store.write() {
+        *w = store;
+    }
     // 意味による並べ替え(aruaru-llm の多言語の埋め込み)。`ARUARU_SEARCH_RERANK=off` で無効にできる
     let llm_base =
         std::env::var("ARUARU_LLM_URL").unwrap_or_else(|_| "http://127.0.0.1:4600".into());

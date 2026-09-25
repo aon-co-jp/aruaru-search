@@ -183,6 +183,17 @@ pub fn verify(cand: &EngineDef, html: &str) -> Result<usize> {
     Ok(hits.len())
 }
 
+/// 保守の経緯を、ファイルと(あれば)aruaru-db に残す。
+pub async fn record(s: &Searcher, dir: &Path, engine: &str, outcome: &str, detail: &str) {
+    log_line(dir, engine, outcome, detail);
+    let store = s.store.read().ok().and_then(|g| g.clone());
+    if let Some(st) = store {
+        if let Err(e) = st.log(now_unix(), engine, outcome, detail).await {
+            eprintln!("aruaru-search: {e:#}");
+        }
+    }
+}
+
 pub fn log_line(dir: &Path, engine: &str, outcome: &str, detail: &str) {
     let line = serde_json::json!({ "unix": now_unix(), "engine": engine, "outcome": outcome, "detail": detail });
     let _ = std::fs::create_dir_all(dir);
@@ -243,12 +254,14 @@ pub async fn repair(
 ) -> bool {
     let structure = condense(html);
     if structure.len() < 200 {
-        log_line(
+        record(
+            s,
             dir,
             &def.id,
             "skipped",
             "ページの内容が空に近く、AI に見せられません(利用を断られている可能性)",
-        );
+        )
+        .await;
         return false;
     }
     let outcome: Result<(EngineDef, usize)> = async {
@@ -262,24 +275,43 @@ pub async fn repair(
     .await;
     match outcome {
         Ok((cand, n)) => {
-            if let Ok(mut engines) = s.engines.write() {
-                if let Some(slot) = engines.iter_mut().find(|e| e.id == def.id) {
-                    *slot = cand.clone();
+            let snapshot: Vec<EngineDef> = match s.engines.write() {
+                Ok(mut engines) => {
+                    if let Some(slot) = engines.iter_mut().find(|e| e.id == def.id) {
+                        *slot = cand.clone();
+                    }
+                    if let Err(e) = save_engines(dir, &engines) {
+                        eprintln!("aruaru-search: 設定の保存に失敗: {e:#}");
+                    }
+                    engines.clone()
                 }
-                if let Err(e) = save_engines(dir, &engines) {
-                    eprintln!("aruaru-search: 設定の保存に失敗: {e:#}");
+                Err(_) => Vec::new(),
+            };
+            let store = s.store.read().ok().and_then(|g| g.clone());
+            if let (Some(st), false) = (store, snapshot.is_empty()) {
+                let msg = format!("aruaru-search repair {}", def.id);
+                match st.save_engines(&snapshot, now_unix(), &msg).await {
+                    Ok(commit) => {
+                        eprintln!("aruaru-search: 設定を aruaru-db に保存しました(版 {commit})")
+                    }
+                    Err(e) => eprintln!("aruaru-search: aruaru-db への設定の保存に失敗: {e:#}"),
                 }
             }
-            log_line(
+            record(
+                s,
                 dir,
                 &def.id,
                 "applied",
-                &format!("{n}件を読み取れる設定に更新: container={} title={} link={} snippet={} unwrap={}", cand.container, cand.title, cand.link, cand.snippet, cand.unwrap),
-            );
+                &format!(
+                    "{n}件を読み取れる設定に更新: container={} title={} link={} snippet={} unwrap={}",
+                    cand.container, cand.title, cand.link, cand.snippet, cand.unwrap
+                ),
+            )
+            .await;
             true
         }
         Err(e) => {
-            log_line(dir, &def.id, "rejected", &format!("{e:#}"));
+            record(s, dir, &def.id, "rejected", &format!("{e:#}")).await;
             false
         }
     }

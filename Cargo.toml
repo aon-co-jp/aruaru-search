@@ -19,3 +19,6 @@ scraper = "0.20"
 http-body-util = "0.1"
 bytes = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip", "brotli", "cookies"] }
+# aruaru-db(pgwire 互換)への接続。検索元の設定と AI 自動保守の履歴を版管理して残す(任意)
+tokio-postgres = "0.7"
+base64 = "0.22"
