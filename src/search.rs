@@ -141,11 +141,11 @@ impl Searcher {
     }
 
     /// 相手に負担をかけないよう、同じ検索元への呼び出しの間隔を空ける。
-    async fn polite_wait(&self, id: &str) {
+    async fn polite_wait(&self, id: &str, interval: Duration) {
         let wait = {
             let mut m = self.last_call.lock().expect("lock");
             let now = Instant::now();
-            let next = m.get(id).map_or(now, |t| (*t + MIN_INTERVAL).max(now));
+            let next = m.get(id).map_or(now, |t| (*t + interval).max(now));
             m.insert(id.to_string(), next);
             next.saturating_duration_since(now)
         };
@@ -169,7 +169,12 @@ impl Searcher {
                 );
             }
         }
-        self.polite_wait(&def.id).await;
+        let interval = if def.interval_ms > 0 {
+            Duration::from_millis(def.interval_ms)
+        } else {
+            MIN_INTERVAL
+        };
+        self.polite_wait(&def.id, interval).await;
         let resp = self
             .http
             .get(def.search_url(q, hl, gl))
