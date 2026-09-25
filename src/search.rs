@@ -20,8 +20,8 @@ const CACHE_TTL: Duration = Duration::from_secs(3600);
 /// 拒否された検索元を休ませる時間(相手に負担をかけず、ブロックを長引かせない)
 const COOLDOWN: Duration = Duration::from_secs(20 * 60);
 const CACHE_MAX: usize = 500;
-/// 点検・保守で使う、最新の結果ページの見本(HTML)の最大長
-pub const SAMPLE_MAX: usize = 300_000;
+/// 取得するページの最大長(これを超える分は読まない)
+const PAGE_MAX: usize = 3_000_000;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Merged {
@@ -151,8 +151,9 @@ impl Searcher {
             );
         }
         let mut html = resp.text().await?;
-        if html.len() > SAMPLE_MAX {
-            let mut cut = SAMPLE_MAX;
+        // 極端に大きいページだけ切る(Yahoo! JAPAN などは結果の前に大きな CSS があり、数百 KB になる)
+        if html.len() > PAGE_MAX {
+            let mut cut = PAGE_MAX;
             while !html.is_char_boundary(cut) {
                 cut -= 1;
             }

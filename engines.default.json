@@ -9,7 +9,7 @@
     "snippet": ".result__snippet",
     "unwrap": "uddg",
     "weight": 1.0,
-    "enabled": true,
+    "enabled": false,
     "langs": [],
     "only_langs": false
   },
