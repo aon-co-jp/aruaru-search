@@ -17,8 +17,9 @@ use crate::lang::{self, Lang};
 const UA: &str = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0";
 const MIN_INTERVAL: Duration = Duration::from_millis(1200);
 const CACHE_TTL: Duration = Duration::from_secs(3600);
-/// 拒否された検索元を休ませる時間(相手に負担をかけず、ブロックを長引かせない)
-const COOLDOWN: Duration = Duration::from_secs(20 * 60);
+/// 拒否された検索元を休ませる時間。拒否が続くたびに長くする(20分 → 1時間 → 3時間 → 12時間 → 24時間)。
+/// 相手に負担をかけず、ブロックを長引かせないため。成功したら段階を最初に戻す。
+const COOLDOWN_STEPS: [u64; 5] = [20 * 60, 60 * 60, 3 * 3600, 12 * 3600, 24 * 3600];
 const CACHE_MAX: usize = 500;
 /// 取得するページの最大長(これを超える分は読まない)
 const PAGE_MAX: usize = 3_000_000;
@@ -40,6 +41,10 @@ pub struct EngineStatus {
     pub last_error: Option<String>,
     pub last_checked_unix: u64,
     pub consecutive_failures: u32,
+    /// 拒否され続けている段階(0=拒否されていない、最大4)
+    pub blocked_level: u32,
+    /// 休止が終わる時刻(UNIX 秒)。休止していなければ 0
+    pub cooldown_until_unix: u64,
     /// 直近に取得した結果ページ(保守用。外には出さない)
     #[serde(skip)]
     pub sample_html: String,
@@ -54,7 +59,7 @@ pub struct Searcher {
     pub status: RwLock<HashMap<String, EngineStatus>>,
     last_call: Mutex<HashMap<String, Instant>>,
     /// 拒否(429・202・403 など)された検索元を、しばらく休ませる時刻
-    cooldown: Mutex<HashMap<String, Instant>>,
+    cooldown: Mutex<HashMap<String, (Instant, u32)>>,
     /// 意味による並べ替えに使う aruaru-llm の URL(`/v1/rerank`)。None なら使わない
     rerank_base: RwLock<Option<String>>,
     /// 保存先(GitHub の非公開リポジトリ。設定と保守履歴。任意)
@@ -86,6 +91,38 @@ impl Searcher {
             store: RwLock::new(None),
             cache: Mutex::new(HashMap::new()),
         }))
+    }
+
+    /// 全体の健康状態: 使える検索元の数と、休止中の検索元。
+    pub fn health(&self) -> serde_json::Value {
+        let now = now_unix();
+        let engines = self.engines.read().map(|e| e.clone()).unwrap_or_default();
+        let status = self.status.read().map(|s| s.clone()).unwrap_or_default();
+        let mut healthy = 0;
+        let mut total = 0;
+        let mut list = Vec::new();
+        for e in engines.iter().filter(|e| e.enabled) {
+            total += 1;
+            let s = status.get(&e.id).cloned().unwrap_or_default();
+            let cooling = s.cooldown_until_unix > now;
+            let ok = s.last_ok != Some(false) && !cooling;
+            if ok {
+                healthy += 1;
+            }
+            list.push(serde_json::json!({
+                "id": e.id, "ok": ok, "blocked_level": s.blocked_level,
+                "cooldown_secs": s.cooldown_until_unix.saturating_sub(now),
+                "last_error": s.last_error,
+            }));
+        }
+        let state = if healthy == 0 {
+            "down"
+        } else if healthy < 2 {
+            "degraded"
+        } else {
+            "ok"
+        };
+        serde_json::json!({ "status": state, "healthy": healthy, "total": total, "engines": list })
     }
 
     pub fn set_rerank(&self, base: Option<String>) {
@@ -123,7 +160,7 @@ impl Searcher {
             .cooldown
             .lock()
             .ok()
-            .and_then(|c| c.get(&def.id).copied())
+            .and_then(|c| c.get(&def.id).map(|x| x.0))
         {
             if until > Instant::now() {
                 bail!(
@@ -144,9 +181,27 @@ impl Searcher {
         // 202 は検索元の「機械による利用の確認」(bot 対策)のページ。結果ではないので、ページの作りの変化とは区別する
         if !status.is_success() || status.as_u16() == 202 {
             if matches!(status.as_u16(), 202 | 403 | 429 | 503) {
+                let mut level = 0;
+                let mut secs = COOLDOWN_STEPS[0];
                 if let Ok(mut c) = self.cooldown.lock() {
-                    c.insert(def.id.clone(), Instant::now() + COOLDOWN);
+                    level = c.get(&def.id).map_or(0, |x| (x.1 + 1).min(4));
+                    secs = COOLDOWN_STEPS[level as usize];
+                    c.insert(
+                        def.id.clone(),
+                        (Instant::now() + Duration::from_secs(secs), level),
+                    );
                 }
+                if let Ok(mut st) = self.status.write() {
+                    let s = st.entry(def.id.clone()).or_default();
+                    s.blocked_level = level;
+                    s.cooldown_until_unix = now_unix() + secs;
+                }
+                eprintln!(
+                    "aruaru-search: {} に拒否されました(HTTP {}、段階 {level})。{}分間は使いません",
+                    def.id,
+                    status.as_u16(),
+                    secs / 60
+                );
             }
             bail!(
                 "拒否されました(HTTP {}。混み合い・機械利用の制限の可能性)",
@@ -191,6 +246,11 @@ impl Searcher {
             s.last_ok = Some(err.is_none());
             if err.is_none() {
                 s.consecutive_failures = 0;
+                s.blocked_level = 0;
+                s.cooldown_until_unix = 0;
+                if let Ok(mut c) = self.cooldown.lock() {
+                    c.remove(&def.id);
+                }
             } else {
                 s.consecutive_failures += 1;
             }
@@ -513,6 +573,14 @@ mod tests {
             same[0].score > same[1].score,
             "意味の近さが同じなら順位のまま"
         );
+    }
+
+    #[test]
+    fn cooldown_steps_grow_and_stay_bounded() {
+        assert!(COOLDOWN_STEPS.windows(2).all(|w| w[0] < w[1]), "拒否が続くほど長く休む");
+        assert_eq!(COOLDOWN_STEPS.len(), 5, "段階は 0〜4");
+        assert_eq!(COOLDOWN_STEPS[0], 20 * 60);
+        assert_eq!(COOLDOWN_STEPS[4], 24 * 3600);
     }
 
     #[test]

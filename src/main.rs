@@ -12,6 +12,7 @@ mod archive;
 mod engine;
 mod lang;
 mod languages;
+mod limit;
 mod maintain;
 mod search;
 mod store;
@@ -37,6 +38,7 @@ struct Ctx {
     llm_base: String,
     dir: PathBuf,
     admin_token: Option<String>,
+    limiter: limit::Limiter,
 }
 
 fn pct_decode(s: &str) -> String {
@@ -72,7 +74,26 @@ fn bad(status: StatusCode, msg: &str) -> Response {
     json_response(status, &json!({ "error": msg }))
 }
 
-async fn do_search(ctx: &Ctx, q: &str, hl: &str, gl: &str, n: usize) -> Response {
+/// プロキシが付けるヘッダから、利用者の IP を取り出す(無ければ内部の利用)。
+fn client_of(req: &Request) -> Option<String> {
+    let h = |k: &str| req.headers().get(k).and_then(|v| v.to_str().ok());
+    limit::client_key(h("x-forwarded-for"), h("x-real-ip"))
+}
+
+async fn do_search(
+    ctx: &Ctx,
+    client: Option<String>,
+    q: &str,
+    hl: &str,
+    gl: &str,
+    n: usize,
+) -> Response {
+    if let Err(wait) = ctx.limiter.check(client.as_deref(), search::now_unix()) {
+        return json_response(
+            StatusCode::TOO_MANY_REQUESTS,
+            &json!({ "error": format!("利用回数の上限に達しました。{wait}秒後にもう一度お試しください"), "retry_after": wait }),
+        );
+    }
     let ok_tag = |s: &str, max: usize| {
         s.len() <= max && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
     };
@@ -93,6 +114,7 @@ fn app(ctx: Arc<Ctx>) -> Route {
     let c2 = ctx.clone();
     let c3 = ctx.clone();
     let c4 = ctx.clone();
+    let c5 = ctx.clone();
     Route::new()
         .at(
             "/",
@@ -111,6 +133,7 @@ fn app(ctx: Arc<Ctx>) -> Route {
             get(handler_fn(move |req: Request, _p| {
                 let ctx = c1.clone();
                 async move {
+                    let client = client_of(&req);
                     let qs = req.uri().query().unwrap_or("").to_string();
                     let q = query_param(&qs, "q").unwrap_or_default();
                     let hl = query_param(&qs, "hl").unwrap_or_default();
@@ -118,12 +141,13 @@ fn app(ctx: Arc<Ctx>) -> Route {
                     let n = query_param(&qs, "n")
                         .and_then(|v| v.parse().ok())
                         .unwrap_or(10);
-                    do_search(&ctx, &q, &hl, &gl, n).await
+                    do_search(&ctx, client, &q, &hl, &gl, n).await
                 }
             }))
             .post(handler_fn(move |req: Request, _p| {
                 let ctx = c2.clone();
                 async move {
+                    let client = client_of(&req);
                     let Ok(body) = Limited::new(req.into_body(), 64 << 10).collect().await else {
                         return bad(StatusCode::PAYLOAD_TOO_LARGE, "リクエストが大きすぎます");
                     };
@@ -143,8 +167,15 @@ fn app(ctx: Arc<Ctx>) -> Route {
                     } else {
                         s("q")
                     };
-                    do_search(&ctx, &q, &s("hl"), &s("gl"), n).await
+                    do_search(&ctx, client, &q, &s("hl"), &s("gl"), n).await
                 }
+            })),
+        )
+        .at(
+            "/v1/health",
+            get(handler_fn(move |_r, _p| {
+                let ctx = c5.clone();
+                async move { json_response(StatusCode::OK, &ctx.searcher.health()) }
             })),
         )
         .at(
@@ -266,6 +297,7 @@ async fn main() -> std::io::Result<()> {
         llm_base,
         dir,
         admin_token: std::env::var("ARUARU_SEARCH_ADMIN_TOKEN").ok(),
+        limiter: limit::Limiter::from_env(),
     });
     tokio::spawn(schedule(ctx.clone()));
     let (addr, handle) = Server::new(TcpListener::bind(bind)).run(app(ctx)).await?;

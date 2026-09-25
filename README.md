@@ -33,10 +33,20 @@ curl 'http://127.0.0.1:4610/v1/search?q=%E5%B1%B1%E6%A2%A8%E7%9C%8C+%E6%B8%A9%E6
 | `GET /v1/search?q=&hl=&gl=&n=` / `POST /v1/search` | 検索。`hl` は言語(ja, zh-TW, ar, fa …)、`gl` は地域(省略可)。`{"results":[{title,link,snippet,engines,score}],"warnings":[]}` |
 | `GET /v1/engines` | 検索元の設定と最近の状態 |
 | `POST /admin/selfcheck` | 点検と自動保守を今すぐ実行(`x-admin-token`。`ARUARU_SEARCH_ADMIN_TOKEN` 設定時のみ) |
+| `GET /v1/health` | 使える検索元の数と、休止中の検索元(`ok` / `degraded`(使える検索元が1つ) / `down`(0))|
 | `GET /healthz` | 死活確認 |
 
 環境変数: `ARUARU_SEARCH_ARCHIVE_REPO`(設定と保守履歴の保存先の GitHub 非公開リポジトリ。任意)、`ARUARU_SEARCH_BIND`(既定 `127.0.0.1:4610`)、`ARUARU_SEARCH_DATA_DIR`(既定 `data`)、
 `ARUARU_LLM_URL`(既定 `http://127.0.0.1:4600`)、`ARUARU_SEARCH_ADMIN_TOKEN`。
+
+## 回数制限と見張り
+
+- **利用者ごとの回数制限**: プロキシ(open-web-server など)が付ける `X-Forwarded-For` / `X-Real-IP` の IP ごとに、1分20回・1日1,000回
+  (`ARUARU_SEARCH_RATE_PER_MIN` / `ARUARU_SEARCH_RATE_PER_DAY`)。超えると HTTP 429(`retry_after` 秒)。
+  ヘッダが無い呼び出し(VPS 内の aruaru-llm・realdata.pro)は内部の利用として制限しない(`ARUARU_SEARCH_LOCAL_UNLIMITED=0` で制限)。
+  公開するときは、プロキシがクライアントの IP を必ず付け直すこと。
+- **検索元のブロックの見張り**: 拒否(429・403・503・確認ページ)されたら休み、続くほど長く休む(20分 → 1時間 → 3時間 → 12時間 → 24時間)。
+  成功すれば最初に戻る。状態は `/v1/health` と `/v1/engines` で見られ、拒否はログに出る。
 
 ## 注意
 

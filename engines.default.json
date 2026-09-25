@@ -109,5 +109,22 @@
       "zh"
     ],
     "only_langs": true
+  },
+  {
+    "id": "naver",
+    "name": "Naver",
+    "url": "https://search.naver.com/search.naver?query={q}&where=web",
+    "container": "div.fds-web-doc-root",
+    "title": "a[data-heatmap-target=\".link\"] span[class*=\"text-type-headline\"]",
+    "link": "a[data-heatmap-target=\".link\"]",
+    "link_attr": "",
+    "snippet": "a[data-heatmap-target=\".link\"] span[class*=\"text-type-body\"]",
+    "unwrap": "",
+    "weight": 1.0,
+    "enabled": true,
+    "langs": [
+      "ko"
+    ],
+    "only_langs": true
   }
 ]
