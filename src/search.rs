@@ -577,7 +577,10 @@ mod tests {
 
     #[test]
     fn cooldown_steps_grow_and_stay_bounded() {
-        assert!(COOLDOWN_STEPS.windows(2).all(|w| w[0] < w[1]), "拒否が続くほど長く休む");
+        assert!(
+            COOLDOWN_STEPS.windows(2).all(|w| w[0] < w[1]),
+            "拒否が続くほど長く休む"
+        );
         assert_eq!(COOLDOWN_STEPS.len(), 5, "段階は 0〜4");
         assert_eq!(COOLDOWN_STEPS[0], 20 * 60);
         assert_eq!(COOLDOWN_STEPS[4], 24 * 3600);

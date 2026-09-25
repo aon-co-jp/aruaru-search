@@ -63,7 +63,7 @@
     "id": "yahoo-jp",
     "name": "Yahoo! JAPAN",
     "url": "https://search.yahoo.co.jp/search?p={q}",
-    "container": "div.sw-CardBase",
+    "container": "div.sw-Card.Algo",
     "title": "h3.sw-Card__titleMain",
     "link": "a.sw-Card__titleInner",
     "snippet": "p.sw-Card__summary",
