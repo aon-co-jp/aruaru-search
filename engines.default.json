@@ -1,0 +1,74 @@
+[
+  {
+    "id": "duckduckgo",
+    "name": "DuckDuckGo",
+    "url": "https://html.duckduckgo.com/html/?q={q}&kl={kl}",
+    "container": "div.result:not(.result--ad)",
+    "title": "a.result__a",
+    "link": "a.result__a",
+    "snippet": ".result__snippet",
+    "unwrap": "uddg",
+    "weight": 1.0,
+    "enabled": true,
+    "langs": [],
+    "only_langs": false
+  },
+  {
+    "id": "bing",
+    "name": "Bing",
+    "url": "https://www.bing.com/search?q={q}&setlang={hl}",
+    "container": "li.b_algo",
+    "title": "h2 a",
+    "link": "h2 a",
+    "snippet": ".b_caption p, .b_algoSlug, p.b_lineclamp2, p.b_lineclamp3",
+    "unwrap": "",
+    "weight": 1.0,
+    "enabled": true,
+    "langs": [],
+    "only_langs": false
+  },
+  {
+    "id": "brave",
+    "name": "Brave Search",
+    "url": "https://search.brave.com/search?q={q}&source=web",
+    "container": "div.snippet[data-type=\"web\"]",
+    "title": ".title",
+    "link": "a",
+    "snippet": ".snippet-description, .content",
+    "unwrap": "",
+    "weight": 0.9,
+    "enabled": true,
+    "langs": [],
+    "only_langs": false
+  },
+  {
+    "id": "mojeek",
+    "name": "Mojeek",
+    "url": "https://www.mojeek.com/search?q={q}",
+    "container": "ul.results-standard > li",
+    "title": "a.title",
+    "link": "a.title",
+    "snippet": "p.s",
+    "unwrap": "",
+    "weight": 0.8,
+    "enabled": false,
+    "langs": [],
+    "only_langs": false
+  },
+  {
+    "id": "yahoo-jp",
+    "name": "Yahoo! JAPAN",
+    "url": "https://search.yahoo.co.jp/search?p={q}",
+    "container": "div.sw-CardBase",
+    "title": "h3.sw-Card__titleMain",
+    "link": "a.sw-Card__titleInner",
+    "snippet": "p.sw-Card__summary",
+    "unwrap": "",
+    "weight": 1.0,
+    "enabled": true,
+    "langs": [
+      "ja"
+    ],
+    "only_langs": true
+  }
+]

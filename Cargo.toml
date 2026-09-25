@@ -1,0 +1,21 @@
+[package]
+name = "aruaru-search"
+description = "Rust製の自前メタ検索: APIキー不要。複数の検索元の公開ページを解析して統合し、検索元の変更はAIで自動保守する"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/aon-co-jp/aruaru-search"
+rust-version = "1.75"
+
+[dependencies]
+# RPoem は deps.lock でコミット固定し .deps/ に取得したものを使う(scripts/fetch-deps)。
+open-runo-poem-compat = { path = ".deps/RPoem/crates/open-runo-poem-compat" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "signal", "time"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+futures = "0.3"
+scraper = "0.20"
+http-body-util = "0.1"
+bytes = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip", "brotli", "cookies"] }

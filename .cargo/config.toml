@@ -1,0 +1,4 @@
+[alias]
+fmt-own = "fmt -p aruaru-search"
+lint-own = "clippy --all-targets -p aruaru-search -- -D warnings"
+test-own = "test -p aruaru-search"
