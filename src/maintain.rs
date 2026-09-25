@@ -187,7 +187,7 @@ pub fn verify(cand: &EngineDef, html: &str) -> Result<usize> {
     Ok(hits.len())
 }
 
-/// 保守の経緯を、ファイルと(あれば)aruaru-db に残す。
+/// 保守の経緯を、ファイルと(あれば)GitHub の保存先に残す。
 pub async fn record(s: &Searcher, dir: &Path, engine: &str, outcome: &str, detail: &str) {
     log_line(dir, engine, outcome, detail);
     let store = s.store.read().ok().and_then(|g| g.clone());
@@ -296,9 +296,13 @@ pub async fn repair(
                 let msg = format!("aruaru-search repair {}", def.id);
                 match st.save_engines(&snapshot, now_unix(), &msg).await {
                     Ok(commit) => {
-                        eprintln!("aruaru-search: 設定を aruaru-db に保存しました(版 {commit})")
+                        eprintln!(
+                            "aruaru-search: 設定を GitHub の保存先に保存しました(版 {commit})"
+                        )
                     }
-                    Err(e) => eprintln!("aruaru-search: aruaru-db への設定の保存に失敗: {e:#}"),
+                    Err(e) => {
+                        eprintln!("aruaru-search: GitHub の保存先への設定の保存に失敗: {e:#}")
+                    }
                 }
             }
             record(

@@ -11,6 +11,9 @@ ExecStart=/root/repository/aruaru-search/target/release/aruaru-search
 Environment=ARUARU_SEARCH_BIND=127.0.0.1:4610
 Environment=ARUARU_SEARCH_DATA_DIR=/root/repository/aruaru-search/data
 Environment=ARUARU_LLM_URL=http://127.0.0.1:4600
+# git の認証(credential store)を見つけるため。設定・保守履歴の保存先(GitHub の非公開リポジトリ)は、drop-in で
+# Environment=ARUARU_SEARCH_ARCHIVE_REPO=https://github.com/aon-co-jp/realdata-archive.git を足す
+Environment=HOME=/root
 Restart=on-failure
 RestartSec=5
 

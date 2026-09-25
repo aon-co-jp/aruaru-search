@@ -57,7 +57,7 @@ pub struct Searcher {
     cooldown: Mutex<HashMap<String, Instant>>,
     /// 意味による並べ替えに使う aruaru-llm の URL(`/v1/rerank`)。None なら使わない
     rerank_base: RwLock<Option<String>>,
-    /// aruaru-db(設定と保守履歴の版管理。任意)
+    /// 保存先(GitHub の非公開リポジトリ。設定と保守履歴。任意)
     pub store: RwLock<Option<Arc<crate::store::Store>>>,
     cache: Mutex<HashMap<String, (Instant, Vec<Merged>)>>,
 }

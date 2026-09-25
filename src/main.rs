@@ -8,6 +8,7 @@
 //!
 //! 毎朝7時(日本時間)と起動時に、全ての検索元を点検し、読み取れなくなったものは AI(aruaru-llm)で自動保守する。
 
+mod archive;
 mod engine;
 mod lang;
 mod languages;
@@ -228,15 +229,15 @@ async fn main() -> std::io::Result<()> {
         .unwrap_or_else(|_| "data".into())
         .into();
     let mut engines = maintain::load_engines(&dir);
-    // aruaru-db(任意): 保存済みの設定があり、ファイルの設定が無ければそれを使う(VPS の作り直しでも設定を戻せる)
+    // 保存先(GitHub の非公開リポジトリ、任意): 保存済みの設定があり、ファイルの設定が無ければそれを使う(VPS の作り直しでも設定を戻せる)
     let mut store = None;
-    if let Ok(dsn) = std::env::var("ARUARU_SEARCH_DB_DSN") {
-        match store::Store::connect(&dsn).await {
+    if let Some(repo) = archive::repo_from_env() {
+        match store::Store::connect(&repo).await {
             Ok(s) => {
                 match s.load_engines().await {
                     Ok(saved) if !saved.is_empty() && !dir.join("engines.json").exists() => {
                         println!(
-                            "aruaru-search: aruaru-db から検索元の設定 {} 件を読み込みました",
+                            "aruaru-search: GitHub の保存先から検索元の設定 {} 件を読み込みました",
                             saved.len()
                         );
                         engines = saved;
@@ -246,7 +247,7 @@ async fn main() -> std::io::Result<()> {
                 }
                 store = Some(Arc::new(s));
             }
-            Err(e) => eprintln!("aruaru-search: aruaru-db を使いません({e:#})"),
+            Err(e) => eprintln!("aruaru-search: GitHub の保存先を使いません({e:#})"),
         }
     }
     let searcher = Searcher::new(engines).expect("HTTP クライアントを作れません");

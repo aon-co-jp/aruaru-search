@@ -35,7 +35,7 @@ curl 'http://127.0.0.1:4610/v1/search?q=%E5%B1%B1%E6%A2%A8%E7%9C%8C+%E6%B8%A9%E6
 | `POST /admin/selfcheck` | 点検と自動保守を今すぐ実行(`x-admin-token`。`ARUARU_SEARCH_ADMIN_TOKEN` 設定時のみ) |
 | `GET /healthz` | 死活確認 |
 
-環境変数: `ARUARU_SEARCH_BIND`(既定 `127.0.0.1:4610`)、`ARUARU_SEARCH_DATA_DIR`(既定 `data`)、
+環境変数: `ARUARU_SEARCH_ARCHIVE_REPO`(設定と保守履歴の保存先の GitHub 非公開リポジトリ。任意)、`ARUARU_SEARCH_BIND`(既定 `127.0.0.1:4610`)、`ARUARU_SEARCH_DATA_DIR`(既定 `data`)、
 `ARUARU_LLM_URL`(既定 `http://127.0.0.1:4600`)、`ARUARU_SEARCH_ADMIN_TOKEN`。
 
 ## 注意
