@@ -55,6 +55,8 @@ pub struct Searcher {
     last_call: Mutex<HashMap<String, Instant>>,
     /// 拒否(429・202・403 など)された検索元を、しばらく休ませる時刻
     cooldown: Mutex<HashMap<String, Instant>>,
+    /// 意味による並べ替えに使う aruaru-llm の URL(`/v1/rerank`)。None なら使わない
+    rerank_base: RwLock<Option<String>>,
     cache: Mutex<HashMap<String, (Instant, Vec<Merged>)>>,
 }
 
@@ -78,8 +80,15 @@ impl Searcher {
             status: RwLock::new(HashMap::new()),
             last_call: Mutex::new(HashMap::new()),
             cooldown: Mutex::new(HashMap::new()),
+            rerank_base: RwLock::new(None),
             cache: Mutex::new(HashMap::new()),
         }))
+    }
+
+    pub fn set_rerank(&self, base: Option<String>) {
+        if let Ok(mut w) = self.rerank_base.write() {
+            *w = base;
+        }
     }
 
     pub fn engine(&self, id: &str) -> Option<EngineDef> {
@@ -248,7 +257,11 @@ impl Searcher {
                 warnings.join(" / ")
             );
         }
-        let merged = merge(&per_engine, &lang, n);
+        let mut merged = merge(&per_engine, &lang, n.max(RERANK_TOP));
+        if let Some(w) = self.semantic_rerank(q, &mut merged).await {
+            warnings.push(w);
+        }
+        merged.truncate(n);
         if let Ok(mut c) = self.cache.lock() {
             if c.len() >= CACHE_MAX {
                 c.clear();
@@ -256,6 +269,79 @@ impl Searcher {
             c.insert(key, (Instant::now(), merged.clone()));
         }
         Ok((merged, warnings))
+    }
+}
+
+/// 意味による並べ替えの対象にする上位の件数(aruaru-llm 側の上限に合わせる)
+const RERANK_TOP: usize = 15;
+/// 意味による並べ替えの待ち時間の上限。間に合わなければ、順位の統合だけの結果を返す
+const RERANK_TIMEOUT: Duration = Duration::from_secs(12);
+
+impl Searcher {
+    /// aruaru-llm の多言語の埋め込み(open-cuda 上の multilingual-e5-small)で、検索語との
+    /// 意味の近さを測り、順位に混ぜる。言語をまたいで比べられるので、英語圏に偏った結果や
+    /// 検索語と関係の薄いページを下げられる。使えなくても検索は止めない(警告だけ返す)。
+    async fn semantic_rerank(&self, q: &str, merged: &mut [Merged]) -> Option<String> {
+        let base = self.rerank_base.read().ok()?.clone()?;
+        if merged.len() < 3 {
+            return None;
+        }
+        let top = merged.len().min(RERANK_TOP);
+        let docs: Vec<String> = merged[..top]
+            .iter()
+            .map(|m| format!("{} {}", m.title, m.snippet))
+            .collect();
+        let call = async {
+            let resp = self
+                .http
+                .post(format!("{}/v1/rerank", base.trim_end_matches('/')))
+                .json(&serde_json::json!({ "query": q, "documents": docs }))
+                .timeout(RERANK_TIMEOUT)
+                .send()
+                .await?;
+            if !resp.status().is_success() {
+                bail!("HTTP {}", resp.status().as_u16());
+            }
+            let j: serde_json::Value = resp.json().await?;
+            let scores: Vec<f64> = j
+                .get("scores")
+                .and_then(|s| s.as_array())
+                .map(|a| a.iter().filter_map(|v| v.as_f64()).collect())
+                .unwrap_or_default();
+            if scores.len() != top {
+                bail!("応答の件数が合いません");
+            }
+            Ok(scores)
+        };
+        match call.await {
+            Ok(scores) => {
+                blend(&mut merged[..top], &scores);
+                merged.sort_by(|a, b| {
+                    b.score
+                        .partial_cmp(&a.score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                None
+            }
+            Err(e) => Some(format!("意味による並べ替えは使えませんでした({e:#})")),
+        }
+    }
+}
+
+/// 順位の統合の点数(0.6)と、意味の近さ(0.4)を、それぞれ 0〜1 に正規化して混ぜる。
+pub fn blend(items: &mut [Merged], sims: &[f64]) {
+    let max_score = items.iter().map(|m| m.score).fold(f64::MIN, f64::max);
+    let (lo, hi) = sims
+        .iter()
+        .fold((f64::MAX, f64::MIN), |(l, h), &s| (l.min(s), h.max(s)));
+    let span = (hi - lo).max(1e-9);
+    for (m, &s) in items.iter_mut().zip(sims) {
+        let rank_part = if max_score > 0.0 {
+            m.score / max_score
+        } else {
+            0.0
+        };
+        m.score = 0.6 * rank_part + 0.4 * ((s - lo) / span);
     }
 }
 
@@ -401,6 +487,27 @@ mod tests {
         assert_eq!(
             en[0].link, "https://en.example/",
             "英語の検索では順位を変えない"
+        );
+    }
+
+    #[test]
+    fn blend_lets_meaning_lift_a_lower_ranked_but_relevant_page() {
+        let mk = |t: &str, s: f64| Merged {
+            title: t.into(),
+            link: t.into(),
+            snippet: String::new(),
+            engines: vec![],
+            score: s,
+        };
+        let mut v = vec![mk("off-topic", 0.033), mk("relevant", 0.030)];
+        blend(&mut v, &[0.70, 0.90]);
+        v.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        assert_eq!(v[0].title, "relevant");
+        let mut same = vec![mk("a", 0.03), mk("b", 0.02)];
+        blend(&mut same, &[0.8, 0.8]);
+        assert!(
+            same[0].score > same[1].score,
+            "意味の近さが同じなら順位のまま"
         );
     }
 

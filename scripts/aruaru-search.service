@@ -1,0 +1,18 @@
+[Unit]
+Description=aruaru-search (Rust製の自前メタ検索・APIキー不要)
+After=network-online.target
+Wants=network-online.target
+# aruaru-llm とセットで動かす(検索の第一候補として使われ、壊れた検索元の自動保守は aruaru-llm の AI を使う)
+PartOf=aruaru-llm.service
+
+[Service]
+WorkingDirectory=/root/repository/aruaru-search
+ExecStart=/root/repository/aruaru-search/target/release/aruaru-search
+Environment=ARUARU_SEARCH_BIND=127.0.0.1:4610
+Environment=ARUARU_SEARCH_DATA_DIR=/root/repository/aruaru-search/data
+Environment=ARUARU_LLM_URL=http://127.0.0.1:4600
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

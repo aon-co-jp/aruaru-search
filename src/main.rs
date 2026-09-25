@@ -19,13 +19,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use http_body_util::{BodyExt, Limited};
-use open_runo_poem_compat::hyper_compat::json_response;
+use open_runo_poem_compat::hyper_compat::{html_response, json_response};
 use open_runo_poem_compat::{
     get, handler_fn, post, Request, Response, Route, Server, StatusCode, TcpListener,
 };
 use serde_json::json;
 
 use search::Searcher;
+
+const INDEX_HTML: &str = include_str!("../web_index.html");
 
 struct Ctx {
     searcher: Arc<Searcher>,
@@ -90,6 +92,12 @@ fn app(ctx: Arc<Ctx>) -> Route {
     let c3 = ctx.clone();
     let c4 = ctx.clone();
     Route::new()
+        .at(
+            "/",
+            get(handler_fn(|_r, _p| async {
+                html_response(StatusCode::OK, INDEX_HTML)
+            })),
+        )
         .at(
             "/healthz",
             get(handler_fn(|_r, _p| async {
@@ -220,11 +228,16 @@ async fn main() -> std::io::Result<()> {
         .into();
     let engines = maintain::load_engines(&dir);
     let searcher = Searcher::new(engines).expect("HTTP クライアントを作れません");
+    // 意味による並べ替え(aruaru-llm の多言語の埋め込み)。`ARUARU_SEARCH_RERANK=off` で無効にできる
+    let llm_base =
+        std::env::var("ARUARU_LLM_URL").unwrap_or_else(|_| "http://127.0.0.1:4600".into());
+    if std::env::var("ARUARU_SEARCH_RERANK").map_or(true, |v| v != "off") {
+        searcher.set_rerank(Some(llm_base.clone()));
+    }
     let ctx = Arc::new(Ctx {
         searcher,
         http: reqwest::Client::new(),
-        llm_base: std::env::var("ARUARU_LLM_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:4600".into()),
+        llm_base,
         dir,
         admin_token: std::env::var("ARUARU_SEARCH_ADMIN_TOKEN").ok(),
     });

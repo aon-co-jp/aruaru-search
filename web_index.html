@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>aruaru-search</title>
+<style>
+:root{--bg:#fff;--fg:#1c2330;--muted:#5b6474;--line:#d9dee7;--accent:#2f6fde}
+@media (prefers-color-scheme:dark){:root{--bg:#12161d;--fg:#e6e9ef;--muted:#9aa4b5;--line:#2b3340;--accent:#6ea0ff}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,sans-serif}
+main{max-width:820px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:8px 0}
+form{display:flex;gap:8px;flex-wrap:wrap}
+input,select,button{font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+input{flex:1 1 260px}
+button{background:var(--accent);color:#fff;border-color:var(--accent);cursor:pointer}
+.r{padding:10px 0;border-bottom:1px solid var(--line)}
+.r a{color:var(--accent);font-size:17px}
+.u,.e{color:var(--muted);font-size:13px;word-break:break-all}
+.err{color:#c0392b}
+</style></head><body><main>
+<h1>aruaru-search <span class="e">APIキー不要・世界約130言語 / key-free, ~130 languages</span></h1>
+<form id="f"><input id="q" placeholder="検索 / Search / 搜索 / 검색 / بحث / جستجو" autofocus>
+<select id="hl" aria-label="言語 / Language"><option value="ja">日本語 — 日本語</option><option value="en">英語 — English</option><option value="zh-Hans">中国語(簡体字) — 简体中文</option><option value="zh-Hant">中国語(繁体字) — 繁體中文</option><option value="ko">韓国語 — 한국어</option><option value="es">スペイン語 — Español</option><option value="pt-BR">ポルトガル語(ブラジル) — Português (Brasil)</option><option value="pt-PT">ポルトガル語(ポルトガル) — Português (Portugal)</option><option value="fr">フランス語 — Français</option><option value="de">ドイツ語 — Deutsch</option><option value="it">イタリア語 — Italiano</option><option value="ru">ロシア語 — Русский</option><option value="uk">ウクライナ語 — Українська</option><option value="ar">アラビア語 — العربية</option><option value="he">ヘブライ語 — עברית</option><option value="fa">ペルシア語 — فارسی</option><option value="tr">トルコ語 — Türkçe</option><option value="hi">ヒンディー語 — हिन्दी</option><option value="bn">ベンガル語 — বাংলা</option><option value="ur">ウルドゥー語 — اردو</option><option value="pa">パンジャブ語 — ਪੰਜਾਬੀ</option><option value="gu">グジャラート語 — ગુજરાતી</option><option value="mr">マラーティー語 — मराठी</option><option value="ta">タミル語 — தமிழ்</option><option value="te">テルグ語 — తెలుగు</option><option value="kn">カンナダ語 — ಕನ್ನಡ</option><option value="ml">マラヤーラム語 — മലയാളം</option><option value="or">オディア語 — ଓଡ଼ିଆ</option><option value="as">アッサム語 — অসমীয়া</option><option value="ne">ネパール語 — नेपाली</option><option value="si">シンハラ語 — සිංහල</option><option value="th">タイ語 — ไทย</option><option value="lo">ラオ語 — ລາວ</option><option value="km">クメール語 — ខ្មែរ</option><option value="my">ミャンマー語 — မြန်မာ</option><option value="vi">ベトナム語 — Tiếng Việt</option><option value="id">インドネシア語 — Bahasa Indonesia</option><option value="ms">マレー語 — Bahasa Melayu</option><option value="fil">フィリピン語 — Filipino</option><option value="jv">ジャワ語 — Basa Jawa</option><option value="su">スンダ語 — Basa Sunda</option><option value="mn">モンゴル語 — Монгол</option><option value="kk">カザフ語 — Қазақ</option><option value="uz">ウズベク語 — Oʻzbek</option><option value="ky">キルギス語 — Кыргызча</option><option value="tg">タジク語 — Тоҷикӣ</option><option value="tk">トルクメン語 — Türkmen</option><option value="az">アゼルバイジャン語 — Azərbaycan</option><option value="hy">アルメニア語 — Հայերեն</option><option value="ka">ジョージア語 — ქართული</option><option value="ps">パシュトー語 — پښتو</option><option value="ku">クルド語 — Kurdî</option><option value="ckb">中央クルド語(ソラニー) — کوردیی ناوەندی</option><option value="dv">ディベヒ語 — ދިވެހި</option><option value="bo">チベット語 — བོད་ཡིག</option><option value="ug">ウイグル語 — ئۇيغۇرچە</option><option value="nl">オランダ語 — Nederlands</option><option value="sv">スウェーデン語 — Svenska</option><option value="no">ノルウェー語 — Norsk</option><option value="da">デンマーク語 — Dansk</option><option value="fi">フィンランド語 — Suomi</option><option value="is">アイスランド語 — Íslenska</option><option value="fo">フェロー語 — Føroyskt</option><option value="et">エストニア語 — Eesti</option><option value="lv">ラトビア語 — Latviešu</option><option value="lt">リトアニア語 — Lietuvių</option><option value="pl">ポーランド語 — Polski</option><option value="cs">チェコ語 — Čeština</option><option value="sk">スロバキア語 — Slovenčina</option><option value="hu">ハンガリー語 — Magyar</option><option value="ro">ルーマニア語 — Română</option><option value="bg">ブルガリア語 — Български</option><option value="sr">セルビア語 — Српски</option><option value="hr">クロアチア語 — Hrvatski</option><option value="bs">ボスニア語 — Bosanski</option><option value="sl">スロベニア語 — Slovenščina</option><option value="mk">マケドニア語 — Македонски</option><option value="sq">アルバニア語 — Shqip</option><option value="el">ギリシャ語 — Ελληνικά</option><option value="mt">マルタ語 — Malti</option><option value="be">ベラルーシ語 — Беларуская</option><option value="ca">カタルーニャ語 — Català</option><option value="eu">バスク語 — Euskara</option><option value="gl">ガリシア語 — Galego</option><option value="ga">アイルランド語 — Gaeilge</option><option value="gd">スコットランド・ゲール語 — Gàidhlig</option><option value="cy">ウェールズ語 — Cymraeg</option><option value="br">ブルトン語 — Brezhoneg</option><option value="lb">ルクセンブルク語 — Lëtzebuergesch</option><option value="fy">西フリジア語 — Frysk</option><option value="rm">ロマンシュ語 — Rumantsch</option><option value="co">コルシカ語 — Corsu</option><option value="eo">エスペラント — Esperanto</option><option value="la">ラテン語 — Latina</option><option value="yi">イディッシュ語 — ייִדיש</option><option value="sw">スワヒリ語 — Kiswahili</option><option value="am">アムハラ語 — አማርኛ</option><option value="ti">ティグリニャ語 — ትግርኛ</option><option value="om">オロモ語 — Afaan Oromoo</option><option value="so">ソマリ語 — Soomaali</option><option value="ha">ハウサ語 — Hausa</option><option value="yo">ヨルバ語 — Yorùbá</option><option value="ig">イボ語 — Igbo</option><option value="ff">フラ語 — Fulfulde</option><option value="wo">ウォロフ語 — Wolof</option><option value="ak">アカン語 — Akan</option><option value="ee">エウェ語 — Eʋegbe</option><option value="ln">リンガラ語 — Lingála</option><option value="kg">コンゴ語 — Kikongo</option><option value="rw">キニヤルワンダ語 — Kinyarwanda</option><option value="rn">キルンディ語 — Ikirundi</option><option value="lg">ガンダ語 — Luganda</option><option value="mg">マダガスカル語 — Malagasy</option><option value="ny">チェワ語 — Chichewa</option><option value="sn">ショナ語 — chiShona</option><option value="zu">ズールー語 — isiZulu</option><option value="xh">コサ語 — isiXhosa</option><option value="af">アフリカーンス語 — Afrikaans</option><option value="st">ソト語 — Sesotho</option><option value="tn">ツワナ語 — Setswana</option><option value="ht">ハイチ・クレオール語 — Kreyòl ayisyen</option><option value="qu">ケチュア語 — Runasimi</option><option value="ay">アイマラ語 — Aymar aru</option><option value="gn">グアラニー語 — Avañeʼẽ</option><option value="mi">マオリ語 — Te Reo Māori</option><option value="sm">サモア語 — Gagana Sāmoa</option><option value="to">トンガ語 — Lea faka-Tonga</option><option value="fj">フィジー語 — Na Vosa Vakaviti</option><option value="haw">ハワイ語 — ʻŌlelo Hawaiʻi</option><option value="tpi">トク・ピシン — Tok Pisin</option><option value="tet">テトゥン語 — Tetun</option><option value="dz">ゾンカ語 — རྫོང་ཁ</option></select><button>検索 / Search</button></form>
+<div id="out"></div>
+<p class="e">結果は Bing・Brave Search・DuckDuckGo・Yahoo! JAPAN などの公開ページを統合したものです。<a href="https://github.com/aon-co-jp/aruaru-search">GitHub</a></p>
+<script>
+const $=id=>document.getElementById(id);
+const nav=(navigator.language||'ja').replace('_','-');
+const sel=$('hl'); const base=nav.split('-')[0];
+const pick=[...sel.options].find(o=>o.value.toLowerCase()===nav.toLowerCase())||[...sel.options].find(o=>o.value===base);
+sel.value=pick?pick.value:'ja';
+$('f').onsubmit=async e=>{
+  e.preventDefault(); const out=$('out'); out.textContent='…';
+  try{
+    const r=await fetch('/v1/search?'+new URLSearchParams({q:$('q').value,hl:sel.value,n:15}));
+    const d=await r.json(); out.textContent='';
+    if(d.error){const p=document.createElement('p');p.className='err';p.textContent=d.error;out.append(p);return}
+    for(const x of d.results){
+      const div=document.createElement('div');div.className='r';
+      const a=document.createElement('a');a.href=x.link;a.rel='noopener noreferrer';a.target='_blank';a.textContent=x.title;
+      const u=document.createElement('div');u.className='u';u.textContent=x.link;
+      const s=document.createElement('div');s.textContent=x.snippet;
+      const en=document.createElement('div');en.className='e';en.textContent=x.engines.join(' · ');
+      div.append(a,u,s,en);out.append(div);
+    }
+  }catch(err){out.textContent=String(err)}
+};
+</script></main></body></html>
