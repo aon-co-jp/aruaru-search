@@ -3,12 +3,15 @@
 //! RPoem(`open-runo-poem-compat`)の上で JSON の検索 API を提供する。
 //! - `GET /v1/search?q=...&hl=ja&gl=JP&n=10`(`POST /v1/search` に JSON も可)
 //! - `GET /v1/engines`(検索元の設定と、最近の状態)
+//! - `GET /v1/media-search?q=...&n=10`(archive.org を曲名/演奏者/作曲者で横断検索。
+//!   パブリックドメイン・CC0・CC-BY(-SA)の音源だけを、即時ストリーミング可能な URL 付きで返す)
 //! - `POST /admin/selfcheck`(`x-admin-token` が必要。環境変数 `ARUARU_SEARCH_ADMIN_TOKEN` を設定したときだけ有効)
 //! - `GET /healthz`
 //!
 //! 毎朝7時(日本時間)と起動時に、全ての検索元を点検し、読み取れなくなったものは AI(aruaru-llm)で自動保守する。
 
 mod archive;
+mod archive_org;
 mod engine;
 mod lang;
 mod languages;
@@ -115,6 +118,7 @@ fn app(ctx: Arc<Ctx>) -> Route {
     let c3 = ctx.clone();
     let c4 = ctx.clone();
     let c5 = ctx.clone();
+    let c6 = ctx.clone();
     Route::new()
         .at(
             "/",
@@ -176,6 +180,30 @@ fn app(ctx: Arc<Ctx>) -> Route {
             get(handler_fn(move |_r, _p| {
                 let ctx = c5.clone();
                 async move { json_response(StatusCode::OK, &ctx.searcher.health()) }
+            })),
+        )
+        .at(
+            "/v1/media-search",
+            get(handler_fn(move |req: Request, _p| {
+                let ctx = c6.clone();
+                async move {
+                    let client = client_of(&req);
+                    if let Err(wait) = ctx.limiter.check(client.as_deref(), search::now_unix()) {
+                        return json_response(
+                            StatusCode::TOO_MANY_REQUESTS,
+                            &json!({ "error": format!("利用回数の上限に達しました。{wait}秒後にもう一度お試しください"), "retry_after": wait }),
+                        );
+                    }
+                    let qs = req.uri().query().unwrap_or("").to_string();
+                    let q = query_param(&qs, "q").unwrap_or_default();
+                    let n = query_param(&qs, "n")
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(10);
+                    match archive_org::search(&q, n).await {
+                        Ok(hits) => json_response(StatusCode::OK, &json!({ "results": hits })),
+                        Err(e) => bad(StatusCode::BAD_GATEWAY, &format!("{e:#}")),
+                    }
+                }
             })),
         )
         .at(

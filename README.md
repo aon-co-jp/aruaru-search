@@ -34,6 +34,7 @@ curl 'http://127.0.0.1:4610/v1/search?q=%E5%B1%B1%E6%A2%A8%E7%9C%8C+%E6%B8%A9%E6
 | `GET /v1/engines` | 検索元の設定と最近の状態 |
 | `POST /admin/selfcheck` | 点検と自動保守を今すぐ実行(`x-admin-token`。`ARUARU_SEARCH_ADMIN_TOKEN` 設定時のみ) |
 | `GET /v1/health` | 使える検索元の数と、休止中の検索元(`ok` / `degraded`(使える検索元が1つ) / `down`(0))|
+| `GET /v1/media-search?q=&n=` | [archive.org](https://archive.org)(Internet Archive)を曲名/演奏者/作曲者/レーベル名などで横断検索。**パブリックドメイン・CC0・CC-BY・CC-BY-SA の音源だけ**を返し(CC-BY-NC・CC-BY-ND 等は除外)、見つかれば即時ストリーミング可能な音声ファイルの直接 URL(`stream_url`)も付ける。`{"results":[{identifier,title,creator,date,licenseurl,item_url,stream_url}]}` |
 | `GET /healthz` | 死活確認 |
 
 環境変数: `ARUARU_SEARCH_ARCHIVE_REPO`(設定と保守履歴の保存先の GitHub 非公開リポジトリ。任意)、`ARUARU_SEARCH_BIND`(既定 `127.0.0.1:4610`)、`ARUARU_SEARCH_DATA_DIR`(既定 `data`)、
@@ -47,6 +48,26 @@ curl 'http://127.0.0.1:4610/v1/search?q=%E5%B1%B1%E6%A2%A8%E7%9C%8C+%E6%B8%A9%E6
   公開するときは、プロキシがクライアントの IP を必ず付け直すこと。
 - **検索元のブロックの見張り**: 拒否(429・403・503・確認ページ)されたら休み、続くほど長く休む(20分 → 1時間 → 3時間 → 12時間 → 24時間)。
   成功すれば最初に戻る。状態は `/v1/health` と `/v1/engines` で見られ、拒否はログに出る。
+
+## 曲名/演奏者/作曲者の横断検索(archive.org、`/v1/media-search`)
+
+既存の検索元(Bing・Brave など)は「公開の検索結果ページを HTML として解析する」設計だが、
+archive.org は構造化された JSON の検索 API(`advancedsearch.php`)とメタデータ API を持つため、
+`src/archive_org.rs` に専用モジュールとして切り出している(`archive.rs` が GitHub 保存を担当するのと
+同じく、機能ごとにモジュールを分ける既存方針に沿う)。既存の検索元の統合(RRF・意味の並べ替え)には
+混ぜず、独立した API として提供する(結果の形が大きく異なる=演奏者・作曲者・ライセンス・
+ストリーミング URL を持つため)。
+
+- **ライセンスの絞り込みはこちら側で厳密に行う**: archive.org 自体は非商用限定(CC-BY-NC 等)の
+  音源も検索結果に含むため、`licenseurl` を見て、パブリックドメイン(publicdomain/zero・
+  publicdomain/mark)・CC0・CC-BY・CC-BY-SA だけを通す(CC-BY-NC・CC-BY-ND・CC-BY-NC-SA・
+  CC-BY-NC-ND・ライセンス不明は除外)。`licenseurl` が無い(=ライセンス表示の無い)音源も除外する。
+- 上位の結果だけ、メタデータ API(`metadata/<identifier>`)からファイル一覧を取得し、
+  再生可能な音声ファイル(mp3 → Ogg Vorbis → FLAC の順で優先)の直接ダウンロード URL を
+  `stream_url` として埋める(全件で行うと重いため上位のみ)。
+- 実機確認例: `curl 'http://127.0.0.1:4610/v1/media-search?q=Caruso&n=5'` で、
+  Enrico Caruso のパブリックドメイン録音(1908〜1919年、`publicdomain/mark`)が
+  ストリーミング URL 付きで返ることを確認済み(2026-09-27)。
 
 ## 注意
 
