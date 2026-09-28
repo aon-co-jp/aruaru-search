@@ -305,6 +305,27 @@ mod tests {
     }
 
     #[test]
+    fn parses_excite_style_results() {
+        let html = r#"<html><body>
+          <div class="item">
+            <h3 class="item_title"><a href="http://www.seotonoyu.jp/">【公式】瀬音の湯</a></h3>
+            <p class="item_summary">ご宿泊された翌日は一般営業開始前の午前9時45分より<b>温泉</b>をご利用頂けます。</p>
+            <div class="item_status"><span class="item_name">www.seotonoyu.jp</span></div>
+          </div>
+          <div class="item">
+            <h3 class="item_title"><a href="https://onsen.nifty.com/">あきる野市の日帰り温泉</a></h3>
+            <p class="item_summary">お得な割引クーポンや宿泊プランを多数掲載。</p>
+          </div>
+        </body></html>"#;
+        let excite = defaults().into_iter().find(|e| e.id == "excite").unwrap();
+        let hits = parse(&excite, html);
+        assert_eq!(hits.len(), 2, "{hits:?}");
+        assert_eq!(hits[0].link, "http://www.seotonoyu.jp/");
+        assert_eq!(hits[0].title, "【公式】瀬音の湯");
+        assert!(hits[0].snippet.contains("温泉"));
+    }
+
+    #[test]
     fn parses_duckduckgo_style_results_and_skips_ads() {
         let html = r#"<html><body>
           <div class="result results_links web-result"><h2><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fa&amp;rut=x">Example A</a></h2><a class="result__snippet">About A</a></div>

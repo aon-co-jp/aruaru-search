@@ -87,6 +87,25 @@
     "interval_ms": 2500
   },
   {
+    "id": "excite",
+    "name": "エキサイト ウェブ検索",
+    "url": "https://websearch.excite.co.jp/?q={q}&page=1",
+    "container": "div.item",
+    "title": "h3.item_title a",
+    "link": "h3.item_title a",
+    "snippet": "p.item_summary",
+    "unwrap": "",
+    "weight": 1.0,
+    "enabled": true,
+    "langs": [
+      "ja"
+    ],
+    "only_langs": true,
+    "link_attr": "",
+    "rev": 0,
+    "interval_ms": 2000
+  },
+  {
     "id": "daum",
     "name": "Daum",
     "url": "https://search.daum.net/search?q={q}",
