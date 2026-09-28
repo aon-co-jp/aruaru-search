@@ -11,6 +11,16 @@ languages are **AI-translated and have not yet been verified by native speakers*
 [`aruaru-vpn`'s `TRANSPARENCY_NOTICE.md`](https://github.com/aon-co-jp/aruaru-vpn/blob/main/TRANSPARENCY_NOTICE.md)).
 If in doubt, defer to the Japanese/English text above.*
 
+**アラビア語・ペルシャ語について / A note on Arabic and Persian**: この2言語は
+ユーザーからの指示により、他の言語より踏み込んで、法律文書として自然な言い回し・
+正確な用語選びに注意を払って翻訳しています。ただし**これも依然としてAI翻訳であり、
+ネイティブ話者による検証は行われていません**——特別な地位を与えるものではなく、
+あくまで上記の日英正本が優先されることに変わりはありません。
+*(EN) At the user's request, Arabic and Persian received extra care for natural
+legal phrasing and precise terminology, more so than the other 126 languages. This
+does **not** make them verified — they remain unreviewed AI translations, and the
+Japanese/English text above still governs in case of any discrepancy.*
+
 ## 日本語(正本)
 
 [`aruaru-search`](https://github.com/aon-co-jp/aruaru-search)の`/v1/media-search`が
@@ -68,9 +78,9 @@ license). Use the `creator` and `licenseurl` fields already included in the
 | uk | Українська (Ukrainian) | Комерційне використання цих треків з archive.org за ліцензією CC-BY/CC-BY-SA вимагає зазначення автора та посилання на ліцензію. |
 | el | Ελληνικά (Greek) | Η εμπορική χρήση αυτών των κομματιών από το archive.org υπό CC-BY/CC-BY-SA απαιτεί αναφορά στον δημιουργό και σύνδεσμο προς την άδεια. |
 | tr | Türkçe (Turkish) | Bu archive.org parçalarının CC-BY/CC-BY-SA altında ticari kullanımı, eser sahibinin belirtilmesini ve lisansa bağlantı verilmesini gerektirir. |
-| ar | العربية (Arabic) | يتطلب الاستخدام التجاري لمقاطع archive.org هذه بموجب CC-BY/CC-BY-SA نسب العمل إلى صاحبه ورابطًا للترخيص. |
+| ar | العربية (Arabic) | يخضع أيُّ استخدامٍ تجاريٍّ لهذه المقطوعات الصوتية المأخوذة من archive.org، والمرخَّصة بموجب CC-BY أو CC-BY-SA، لالتزامٍ قانونيٍّ بذكر اسم صاحب العمل (المؤدِّي أو الملحِّن) وإدراج رابطٍ إلى نصِّ الترخيص. أمَّا الأعمال الواقعة ضمن الملكية العامة (Public Domain) فلا تستلزم هذا الالتزام. |
 | he | עברית (Hebrew) | שימוש מסחרי ברצועות archive.org אלו תחת CC-BY/CC-BY-SA מחייב מתן קרדיט ליוצר וקישור לרישיון. |
-| fa | فارسی (Persian) | استفاده تجاری از این ترک‌های archive.org تحت مجوز CC-BY/CC-BY-SA مستلزم ذکر نام سازنده و پیوند به مجوز است. |
+| fa | فارسی (Persian) | بهره‌برداریِ تجاری از این آثار صوتیِ برگرفته از archive.org که تحت مجوز CC-BY یا CC-BY-SA منتشر شده‌اند، از نظر قانونی مستلزمِ ذکر نام پدیدآورنده (خواننده یا آهنگ‌ساز) و درجِ پیوند به متن مجوز است. آثاری که در حوزهٔ عمومی (Public Domain) قرار دارند، از این الزام مستثنا هستند. |
 | hi | हिन्दी (Hindi) | archive.org के इन ट्रैक का CC-BY/CC-BY-SA के अंतर्गत व्यावसायिक उपयोग करने पर निर्माता का उल्लेख और लाइसेंस का लिंक देना अनिवार्य है। |
 | bn | বাংলা (Bengali) | CC-BY/CC-BY-SA লাইসেন্সের অধীনে এই archive.org ট্র্যাকগুলির বাণিজ্যিক ব্যবহারে নির্মাতার কৃতিত্ব ও লাইসেন্সের লিঙ্ক দেওয়া বাধ্যতামূলক। |
 | id | Bahasa Indonesia (Indonesian) | Penggunaan komersial trek archive.org ini di bawah CC-BY/CC-BY-SA mewajibkan pencantuman kredit pencipta dan tautan ke lisensi. |
