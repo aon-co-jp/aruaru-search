@@ -7,7 +7,10 @@ Rust 製の自前メタ検索(APIキー不要)。aruaru-llm の検索の第一�
 
 ## 設計上の約束
 - 検索元の違いは**コードではなく設定**(`engines.default.json` / `data/engines.json`)。ページの作りが変わったら設定(CSS セレクタ)を直す。
-- AI が変えてよいのはセレクタと転送パラメータ名だけ。**URL・重み・有効/無効は AI に変えさせない**。提案は実ページで3件以上読み取れると確認してから取り込む(`maintain.rs`)。
+- AI が1回の回答で直接変えてよいのはセレクタと転送パラメータ名だけ。**URL・重みは AI に変えさせない**。提案は実ページで3件以上読み取れると確認してから取り込む(`maintain.rs`)。
+  無効化だけは例外で、AI が「セレクタでは直せない」(`give_up`)と`DISABLE_AFTER_GIVE_UPS`(既定3)回**連続で**判断したときに限り、
+  自動で `enabled: false` にする(2026-09-30、CAPTCHAゲートされたBaiduの実例を受けて追加)。1回の一時的な失敗だけでは無効化しない。
+  無効化した検索元は`maintenance.log`に理由を残し、手動で`enabled`をtrueに戻すまで再度使われない。
 - 英語・アメリカ中心にしない: 言語ごとの `hl/gl` 正規化・文字種による並べ替え・得意な検索元の重み付け(`lang.rs`)を崩さない。新しい言語の対応は `languages.rs`(約130言語)と `lang.rs` の表に足す。
 - 検索元に負担をかけない: 間隔(`MIN_INTERVAL`)・拒否後の休止(`COOLDOWN`)・キャッシュを弱めない。
 - 依存は `deps.lock` でコミット固定し `.deps/` に取得(`scripts/fetch-deps.sh`)。`cargo fmt --all` は使わず `cargo fmt-own` を使う。
@@ -46,6 +49,28 @@ Bing・Brave・Yahoo! JAPAN の3つしかなかった日本語検索元に、実
 上記で見送った理由(サービス終了・JS描画・robots.txt禁止・ボット検知)に当てはまらない
 新しいものを探す必要がある。日本語検索元が Bing・Brave・Yahoo! JAPAN・Excite の4つに
 増えたことで、休止が重なったときの心許なさは多少改善したが、根本的な解消ではない。
+
+## AI によるセレクタ自動修復・無効化(2026-09-30)
+
+`realdata.pro` の実運用で、9/29 の毎朝の自動収集が23か所中2か所で打ち切られる事象が見つかり
+(詳細は `realdata.pro/CLAUDE.md` の再開用メッセージ)、原因の一つとして **Baidu が CAPTCHA
+ゲート**(`wappass.baidu.com` への強制リダイレクト、VPS の IP に対して継続的)されていることが
+判明した。これはセレクタの修正では直せない(そもそもページに結果が無い)ため、`enabled: false`
+に変更(`rev`を上げて保存済み設定にも反映されるようにした)。
+
+これを機に、`maintain.rs` の自己修復に**AI 自身の無効化判断**を追加した:
+- AI が `{"give_up":true}`(セレクタでは直せない、CAPTCHA・JS必須・利用拒否などの可能性)と
+  `DISABLE_AFTER_GIVE_UPS`(既定3)回**連続で**判断した検索元は、自動的に `enabled: false` にする。
+- 取得したページの中身がほぼ空(AI に見せられないほど小さい、まさに CAPTCHA リダイレクトのような
+  ケース)も、AI に問い合わせるまでもなく give_up 扱いにする(`repair` 関数)。
+- 1回でも直った・正常に読み取れた時点で `give_up_streak` は 0 に戻る(一時的な失敗の連鎖では
+  無効化されない)。
+- 無効化した経緯は `maintenance.log` に残り、**再度使うには手動で `enabled` を true に戻す**
+  必要がある(AI が自分で再度有効化することはできない設計のまま)。
+- `EngineDef.give_up_streak`(`engine.rs`)・`RepairOutcome`/`GiveUp`/`bump_give_up_streak`/
+  `reset_give_up_streak`(`maintain.rs`)で実装。テスト(`give_up_streak_disables_after_threshold_and_resets_on_recovery`
+  など)で、しきい値未満では無効化しないこと・しきい値到達で無効化されること・回復で streak が
+  0に戻ることを確認済み。
 
 ## archive.org 横断検索(`/v1/media-search`、2026-09-27 実装・実機確認済み)
 

@@ -44,6 +44,10 @@ pub struct EngineDef {
     /// true なら、`langs` の言語の検索でしか使わない(例: 日本向けの検索元)
     #[serde(default)]
     pub only_langs: bool,
+    /// AI が「セレクタでは直せない(give_up)」と連続で判断した回数。`maintain::DISABLE_AFTER_GIVE_UPS`
+    /// に達すると自動で無効化する(`maintain::selfcheck`)。直せた・正常だった時点で 0 に戻る。
+    #[serde(default)]
+    pub give_up_streak: u32,
 }
 
 fn one() -> f64 {

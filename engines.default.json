@@ -135,12 +135,12 @@
     "snippet": "[class*=\"content-right\"], .c-abstract, .c-span-last",
     "unwrap": "",
     "weight": 1.0,
-    "enabled": true,
+    "enabled": false,
     "langs": [
       "zh"
     ],
     "only_langs": true,
-    "rev": 0,
+    "rev": 1,
     "interval_ms": 0
   },
   {

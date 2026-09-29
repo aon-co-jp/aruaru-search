@@ -6,11 +6,18 @@
 //!
 //! **AI の提案は、そのまま使わない。** 次を全て満たしたときだけ取り込む:
 //! 1. 変えてよいのは、セレクタ(container/title/link/snippet)と転送用パラメータ名(unwrap)だけ。
-//!    URL・重み・有効/無効は変えない(AI に取得先を変えさせない)。
+//!    URL・重みは変えない(AI に取得先を変えさせない)。
 //! 2. 設定として正しい(`EngineDef::validate`)。
 //! 3. 取得済みの実際のページで、3件以上の結果(http/https のリンクとタイトルつき)が読み取れる。
 //!
-//! 取り込んだ・断った経緯は `maintenance.log`(1行1件の JSON)に残す。
+//! **無効化は、AI の1回の回答だけでは行わない。** AI が「セレクタでは直せない」
+//! (`{"give_up":true}`、CAPTCHA・JavaScript必須・利用拒否などセレクタの修正では
+//! どうにもならないとき)と判断した回数を `EngineDef::give_up_streak` に積み、
+//! `DISABLE_AFTER_GIVE_UPS`(既定3)回連続になった時点で初めて自動的に無効化する
+//! (`selfcheck`)。直せた・正常に読み取れた時点で streak は 0 に戻るため、1回の
+//! 一時的な失敗だけで止まることはない。無効化した経緯も `maintenance.log` に残る。
+//!
+//! 取り込んだ・断った・無効化した経緯は `maintenance.log`(1行1件の JSON)に残す。
 
 use std::path::Path;
 use std::sync::Arc;
@@ -48,6 +55,18 @@ pub fn canaries_for(def: &EngineDef) -> Vec<(&'static str, &'static str, &'stati
         .collect()
 }
 const MIN_HITS: usize = 3;
+/// この回数だけ連続で AI が「セレクタでは直せない」(give up)と判断したら、検索元を自動で無効化する。
+pub const DISABLE_AFTER_GIVE_UPS: u32 = 3;
+
+/// AI が「セレクタの修正では直せない」と回答したことを表す印(`anyhow::Error::downcast_ref` で見分ける)。
+#[derive(Debug)]
+pub struct GiveUp(pub String);
+impl std::fmt::Display for GiveUp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl std::error::Error for GiveUp {}
 const HTML_BUDGET: usize = 14_000;
 
 /// AI に見せるため、ページの構造を小さくまとめる(script/style/svg を除き、class・id・href だけ残す)。
@@ -151,7 +170,11 @@ fn extract_json(text: &str) -> Option<Json> {
 /// AI の提案を、今の設定に重ねた候補にする(変えてよい項目だけ)。
 pub fn apply_proposal(current: &EngineDef, proposal: &Json) -> Result<EngineDef> {
     if proposal.get("give_up").and_then(Json::as_bool) == Some(true) {
-        bail!("AI は読み取れないと判断しました(JavaScript が必要なページ、または利用を断られている可能性)");
+        return Err(GiveUp(
+            "AI は読み取れないと判断しました(JavaScript が必要なページ、または利用を断られている可能性)"
+                .to_string(),
+        )
+        .into());
     }
     let s = |k: &str| {
         proposal
@@ -283,7 +306,15 @@ async fn ask_ai(http: &reqwest::Client, llm_base: &str, prompt: &str) -> Result<
         .ok_or_else(|| anyhow!("AI から回答を得られませんでした"))
 }
 
-/// 壊れた検索元を1つ直す。直せたら true。
+/// `repair` の結果。`GiveUp` は「セレクタの修正ではどうにもならない」という AI の判断
+/// (または AI に見せる中身すら無いこと)を表し、`selfcheck` が `give_up_streak` を積む材料にする。
+pub enum RepairOutcome {
+    Fixed,
+    GiveUp,
+    Failed,
+}
+
+/// 壊れた検索元を1つ直す。
 pub async fn repair(
     s: &Searcher,
     http: &reqwest::Client,
@@ -292,18 +323,18 @@ pub async fn repair(
     def: &EngineDef,
     html: &str,
     query: &str,
-) -> bool {
+) -> RepairOutcome {
     let structure = condense(html);
     if structure.len() < 200 {
         record(
             s,
             dir,
             &def.id,
-            "skipped",
-            "ページの内容が空に近く、AI に見せられません(利用を断られている可能性)",
+            "give_up",
+            "ページの内容が空に近く、AI に見せられません(CAPTCHA・利用拒否などの可能性)",
         )
         .await;
-        return false;
+        return RepairOutcome::GiveUp;
     }
     let outcome: Result<(EngineDef, usize)> = async {
         let reply = ask_ai(http, llm_base, &prompt(def, query, &structure)).await?;
@@ -353,18 +384,96 @@ pub async fn repair(
                 ),
             )
             .await;
-            true
+            RepairOutcome::Fixed
         }
         Err(e) => {
-            record(s, dir, &def.id, "rejected", &format!("{e:#}")).await;
-            false
+            if e.downcast_ref::<GiveUp>().is_some() {
+                record(s, dir, &def.id, "give_up", &format!("{e:#}")).await;
+                RepairOutcome::GiveUp
+            } else {
+                record(s, dir, &def.id, "rejected", &format!("{e:#}")).await;
+                RepairOutcome::Failed
+            }
         }
     }
+}
+
+/// 今の検索元の一覧を、ローカルと(あれば)GitHub の保存先の両方に保存する。
+async fn persist_engines(s: &Searcher, dir: &Path, commit_msg: &str) {
+    let snapshot: Vec<EngineDef> = match s.engines.read() {
+        Ok(engines) => engines.clone(),
+        Err(_) => return,
+    };
+    if let Err(e) = save_engines(dir, &snapshot) {
+        eprintln!("aruaru-search: 設定の保存に失敗: {e:#}");
+    }
+    let store = s.store.read().ok().and_then(|g| g.clone());
+    if let Some(st) = store {
+        match st.save_engines(&snapshot, now_unix(), commit_msg).await {
+            Ok(commit) => {
+                eprintln!("aruaru-search: 設定を GitHub の保存先に保存しました(版 {commit})")
+            }
+            Err(e) => eprintln!("aruaru-search: GitHub の保存先への設定の保存に失敗: {e:#}"),
+        }
+    }
+}
+
+/// `give_up_streak` を 0 に戻す(直った・正常に戻ったとき)。変化が無ければ何もしない。
+async fn reset_give_up_streak(s: &Searcher, dir: &Path, id: &str) {
+    let changed = match s.engines.write() {
+        Ok(mut engines) => match engines.iter_mut().find(|e| e.id == id) {
+            Some(slot) if slot.give_up_streak != 0 => {
+                slot.give_up_streak = 0;
+                true
+            }
+            _ => false,
+        },
+        Err(_) => false,
+    };
+    if changed {
+        persist_engines(s, dir, &format!("aruaru-search reset give_up_streak {id}")).await;
+    }
+}
+
+/// `give_up_streak` を1つ積む。`DISABLE_AFTER_GIVE_UPS` に達したら、その場で無効化する。
+/// 戻り値は (積んだ後の streak, 今回無効化したか)。
+async fn bump_give_up_streak(s: &Searcher, dir: &Path, id: &str) -> (u32, bool) {
+    let mut disabled_now = false;
+    let streak = match s.engines.write() {
+        Ok(mut engines) => match engines.iter_mut().find(|e| e.id == id) {
+            Some(slot) => {
+                slot.give_up_streak += 1;
+                if slot.give_up_streak >= DISABLE_AFTER_GIVE_UPS && slot.enabled {
+                    slot.enabled = false;
+                    disabled_now = true;
+                }
+                slot.give_up_streak
+            }
+            None => 0,
+        },
+        Err(_) => 0,
+    };
+    persist_engines(s, dir, &format!("aruaru-search give_up {id} (streak {streak})")).await;
+    if disabled_now {
+        record(
+            s,
+            dir,
+            id,
+            "disabled",
+            &format!(
+                "AI が {DISABLE_AFTER_GIVE_UPS}回連続でセレクタでは直せないと判断したため、自動的に無効化しました\
+                 (CAPTCHA・利用拒否などの可能性。有効化するには手動で `enabled` を true に戻してください)"
+            ),
+        )
+        .await;
+    }
+    (streak, disabled_now)
 }
 
 /// 全ての検索元を点検し、読み取れないものは AI で直す。結果の要約(1行ずつ)を返す。
 /// AI が直した設定は、新しく取得したページでもう一度確かめ、読み取れなければ**元の設定に戻す**
 /// (提案が手元の1枚のページにだけ合っていて、実際には使えない場合に、動いている検索元を壊さないため)。
+/// AI が「セレクタでは直せない」と `DISABLE_AFTER_GIVE_UPS` 回連続で判断した検索元は、自動で無効化する。
 pub async fn selfcheck(
     s: &Arc<Searcher>,
     http: &reqwest::Client,
@@ -395,10 +504,28 @@ pub async fn selfcheck(
             }
         }
         match broken {
-            None => report.push(format!("{}: 正常({ok_count}/{})", def.id, canaries.len())),
+            None => {
+                report.push(format!("{}: 正常({ok_count}/{})", def.id, canaries.len()));
+                reset_give_up_streak(s, dir, &def.id).await;
+            }
             Some((html, q)) if !html.is_empty() => {
-                let fixed = repair(s, http, llm_base, dir, def, &html, &q).await;
-                if !fixed {
+                let outcome = repair(s, http, llm_base, dir, def, &html, &q).await;
+                if matches!(outcome, RepairOutcome::GiveUp) {
+                    let (streak, disabled_now) = bump_give_up_streak(s, dir, &def.id).await;
+                    report.push(if disabled_now {
+                        format!(
+                            "{}: 読み取れず → AI がセレクタでは直せないと判断({streak}回連続) → 自動的に無効化",
+                            def.id
+                        )
+                    } else {
+                        format!(
+                            "{}: 読み取れず → AI がセレクタでは直せないと判断(give_up_streak={streak}/{DISABLE_AFTER_GIVE_UPS})",
+                            def.id
+                        )
+                    });
+                    continue;
+                }
+                if !matches!(outcome, RepairOutcome::Fixed) {
                     report.push(format!(
                         "{}: 読み取れず → 修正できず(maintenance.log を確認)",
                         def.id
@@ -416,6 +543,7 @@ pub async fn selfcheck(
                 };
                 if confirmed {
                     report.push(format!("{}: 読み取れず → AI が設定を修正(確認 OK)", def.id));
+                    reset_give_up_streak(s, dir, &def.id).await;
                 } else {
                     // 元に戻す
                     if let Ok(mut engines) = s.engines.write() {
@@ -574,5 +702,52 @@ mod tests {
             "壊れた設定は既定へ戻す"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn give_up_streak_disables_after_threshold_and_resets_on_recovery() {
+        let dir = std::env::temp_dir().join(format!("aruaru-search-test-gu-{}", now_unix()));
+        let s = Searcher::new(engine::defaults()).unwrap();
+        let id = "bing";
+        assert!(s.engine(id).unwrap().enabled, "前提: 既定で有効な検索元を使う");
+        // DISABLE_AFTER_GIVE_UPS 回未満なら、まだ有効なまま
+        for n in 1..DISABLE_AFTER_GIVE_UPS {
+            let (streak, disabled_now) = bump_give_up_streak(&s, &dir, id).await;
+            assert_eq!(streak, n);
+            assert!(!disabled_now);
+            assert!(s.engine(id).unwrap().enabled, "しきい値未満では無効化しない");
+        }
+        // ちょうどしきい値に達したら、無効化される
+        let (streak, disabled_now) = bump_give_up_streak(&s, &dir, id).await;
+        assert_eq!(streak, DISABLE_AFTER_GIVE_UPS);
+        assert!(disabled_now);
+        assert!(!s.engine(id).unwrap().enabled, "しきい値に達したら無効化する");
+        // 保存先にも反映されている
+        assert!(
+            !load_engines(&dir)
+                .iter()
+                .find(|e| e.id == id)
+                .unwrap()
+                .enabled
+        );
+        // 正常に戻れば streak は 0 に戻る(有効/無効はここでは変えない、手動で戻す想定)
+        reset_give_up_streak(&s, &dir, id).await;
+        assert_eq!(s.engine(id).unwrap().give_up_streak, 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn give_up_proposal_is_distinguishable_from_other_rejections() {
+        let d = ddg();
+        let err = apply_proposal(&d, &serde_json::json!({"give_up":true})).unwrap_err();
+        assert!(
+            err.downcast_ref::<GiveUp>().is_some(),
+            "give_up の提案は GiveUp として見分けられる"
+        );
+        let err2 = apply_proposal(&d, &serde_json::json!({"container":"article["})).unwrap_err();
+        assert!(
+            err2.downcast_ref::<GiveUp>().is_none(),
+            "他の失敗は GiveUp と見分けられない"
+        );
     }
 }
