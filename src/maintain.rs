@@ -470,10 +470,40 @@ async fn bump_give_up_streak(s: &Searcher, dir: &Path, id: &str) -> (u32, bool) 
     (streak, disabled_now)
 }
 
+/// 無効化されている検索元を1つ、軽く(見本1件だけ)試す。結果が読み取れれば再度有効化する。
+/// 負担をかけないよう、点検1回につき検索元ごとに1件の問い合わせだけにする。
+async fn recheck_disabled(s: &Searcher, dir: &Path, def: &EngineDef) -> String {
+    let Some((q, hl, gl)) = canaries_for(def).into_iter().next() else {
+        return format!("{}: 無効化中(見本の検索語が無く再確認できません)", def.id);
+    };
+    match s.query_engine(def, q, hl, gl).await {
+        Ok(h) if h.len() >= MIN_HITS => {
+            if let Ok(mut engines) = s.engines.write() {
+                if let Some(slot) = engines.iter_mut().find(|e| e.id == def.id) {
+                    slot.enabled = true;
+                    slot.give_up_streak = 0;
+                }
+            }
+            persist_engines(s, dir, &format!("aruaru-search re_enabled {}", def.id)).await;
+            record(
+                s,
+                dir,
+                &def.id,
+                "re_enabled",
+                "無効化していましたが、見本の検索で再度結果を読み取れたため自動的に有効化しました",
+            )
+            .await;
+            format!("{}: 無効化中だったが復活を確認 → 自動的に再度有効化", def.id)
+        }
+        _ => format!("{}: 無効化中(まだ復活を確認できません)", def.id),
+    }
+}
+
 /// 全ての検索元を点検し、読み取れないものは AI で直す。結果の要約(1行ずつ)を返す。
 /// AI が直した設定は、新しく取得したページでもう一度確かめ、読み取れなければ**元の設定に戻す**
 /// (提案が手元の1枚のページにだけ合っていて、実際には使えない場合に、動いている検索元を壊さないため)。
 /// AI が「セレクタでは直せない」と `DISABLE_AFTER_GIVE_UPS` 回連続で判断した検索元は、自動で無効化する。
+/// 無効化されている検索元も、点検のたびに軽く(見本1件だけ)試し、復活していれば自動で再度有効化する。
 pub async fn selfcheck(
     s: &Arc<Searcher>,
     http: &reqwest::Client,
@@ -482,6 +512,11 @@ pub async fn selfcheck(
 ) -> Vec<String> {
     let defs: Vec<EngineDef> = s.engines.read().map(|e| e.clone()).unwrap_or_default();
     let mut report = Vec::new();
+    for def in defs.iter().filter(|d| !d.enabled) {
+        if !canaries_for(def).is_empty() {
+            report.push(recheck_disabled(s, dir, def).await);
+        }
+    }
     for def in defs.iter().filter(|d| d.enabled) {
         let canaries = canaries_for(def);
         if canaries.is_empty() {

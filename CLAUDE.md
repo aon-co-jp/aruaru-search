@@ -65,12 +65,15 @@ Bing・Brave・Yahoo! JAPAN の3つしかなかった日本語検索元に、実
   ケース)も、AI に問い合わせるまでもなく give_up 扱いにする(`repair` 関数)。
 - 1回でも直った・正常に読み取れた時点で `give_up_streak` は 0 に戻る(一時的な失敗の連鎖では
   無効化されない)。
-- 無効化した経緯は `maintenance.log` に残り、**再度使うには手動で `enabled` を true に戻す**
-  必要がある(AI が自分で再度有効化することはできない設計のまま)。
+- 無効化した経緯は `maintenance.log` に残る。
+- **自動復活(2026-09-30追加)**: 無効化中の検索元も、毎回の点検(`selfcheck`)で見本1件だけ
+  軽く試す(`recheck_disabled`)。負担をかけないよう全見本ではなく1件だけ。読み取れれば
+  `enabled:true`・`give_up_streak:0` に戻し、`maintenance.log` に `re_enabled` として記録する。
+  CAPTCHAゲートやサービス側の一時的な制限が後で解除された場合、手動操作なしに自然と復活する。
 - `EngineDef.give_up_streak`(`engine.rs`)・`RepairOutcome`/`GiveUp`/`bump_give_up_streak`/
-  `reset_give_up_streak`(`maintain.rs`)で実装。テスト(`give_up_streak_disables_after_threshold_and_resets_on_recovery`
-  など)で、しきい値未満では無効化しないこと・しきい値到達で無効化されること・回復で streak が
-  0に戻ることを確認済み。
+  `reset_give_up_streak`/`recheck_disabled`(`maintain.rs`)で実装。テスト
+  (`give_up_streak_disables_after_threshold_and_resets_on_recovery`など)で、しきい値未満では
+  無効化しないこと・しきい値到達で無効化されること・回復で streak が0に戻ることを確認済み。
 
 ## archive.org 横断検索(`/v1/media-search`、2026-09-27 実装・実機確認済み)
 
