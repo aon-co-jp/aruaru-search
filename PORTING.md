@@ -51,3 +51,7 @@
 - 試験: `cargo test`(偽の時計+手元の模擬サーバーで、即復帰・指数バックオフ・理由の区別・別の検索元への切り替え)。
 - 本番反映: Ubuntu-24.04(WSL、glibc 2.39)でリリースビルド → scp → `.bak-日付` を残して入れ替え → `systemctl restart aruaru-search` → `Search/Health` で確認。VPS ではビルドしない(メモリ 3.6GB)。
 - English: cooled-down engines are now probed with a fixed harmless query when due; success recovers immediately, failure backs off exponentially (cooldown end is never extended). Reasons (rejected / rate_limited / network) get different cooldown lengths. `Health` shows `cooldown_reason`, `next_probe_secs`, `last_probe`.
+
+## 2026-11-20 依存の脆弱性修正 / Dependency security fix
+**日本語**: quinn-udp 0.5.16(RUSTSEC-2026-0538) を更新し、`cargo test --locked` が全件成功しました(本番反映は別途)。
+**English**: Updated quinn-udp 0.5.16(RUSTSEC-2026-0538); `cargo test --locked` passes (production deploy is separate).
