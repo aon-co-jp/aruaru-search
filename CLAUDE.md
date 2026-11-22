@@ -299,3 +299,7 @@ VPS の aruaru-search は Connect 版(`38d6e3a`)。旧RESTは削除済み。呼�
 ## 2026-11-20 低VRAM・VRAM無し端末(VPS・PC・タブレット・スマホ)でのAI/LLMのノウハウ / Low-VRAM AI know-how
 日本語: AI・LLMを使う機能(推論・要約・補完・OCR等)は、[aruaru-llm/docs/LOW-VRAM-KNOWHOW.md](https://github.com/aon-co-jp/aruaru-llm/blob/main/docs/LOW-VRAM-KNOWHOW.md) に従う: 短い文脈・上限・タイムアウト、VPSで重い推論を直接回さない、メモリが足りなければ小さいモデルへ自動で下げる。広い桁(FP64以上)は本番で使わず、試験の正解にだけ使う。
 English: Features that use AI/LLMs follow the file above: short context, caps and timeouts, no heavy inference directly on the VPS, auto-downgrade to a smaller model when memory is short. Wide floats (FP64 and above) are for test oracles only, not production.
+
+## 完成状況 / Status (2026-11-22)
+**日本語**: Connect 移行は完了し VPS に反映済み。`ok()` は RS-JSON の書き出し結果をそのまま返す(二重変換を廃止)。Baidu は既定の `rev` を 2 に上げて無効を反映した。方針の要約は [POLICY.md](POLICY.md)。未確認: `maid-cafe-programming-school` の `extension.ts` が aruaru-llm 経由であること(コード未確認)。
+**English**: The Connect migration is complete and deployed. `ok()` returns RS-JSON's bytes as they are (double conversion removed). Baidu's default `rev` was raised to 2 so its disabled state propagates. See [POLICY.md](POLICY.md). Unverified: that `maid-cafe-programming-school`'s `extension.ts` goes through aruaru-llm (not checked in code).
