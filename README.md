@@ -253,3 +253,7 @@ Reading into `serde_json::Value` gives almost no speed-up even with SIMD (188 ms
 - **WASM по-прежнему остаётся технологией для интерфейса.** Изменилось лишь то, что вызываемый им API теперь построен на Connect.
 - Интерфейсы, форма которых задана внешним стандартом (ACME, обратные вызовы OAuth, вебхуки сторонних сервисов, проверки работоспособности, статические файлы, OTLP), остаются обычным HTTP.
 - **Если есть сомнения — выбирайте Connect.**
+
+## Connect 移行の完了 / Connect migration complete (2026-11-22)
+**日本語**: REST は全廃し、すべて Connect(POST、RS-JSON)になりました。VPS に反映済みで、呼び出し元(aruaru-llm・open-upstream-watch・realdata.pro・`diet_crawl.py`)も移行済みです。方針は [POLICY.md](POLICY.md)。
+**English**: REST is gone; everything is Connect (POST, RS-JSON). Deployed on the VPS, and the callers (aruaru-llm, open-upstream-watch, realdata.pro, `diet_crawl.py`) are migrated. See [POLICY.md](POLICY.md).

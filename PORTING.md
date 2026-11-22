@@ -55,3 +55,7 @@
 ## 2026-11-20 依存の脆弱性修正 / Dependency security fix
 **日本語**: quinn-udp 0.5.16(RUSTSEC-2026-0538) を更新し、`cargo test --locked` が全件成功しました(本番反映は別途)。
 **English**: Updated quinn-udp 0.5.16(RUSTSEC-2026-0538); `cargo test --locked` passes (production deploy is separate).
+
+## 2026-11-22 完成 / Completion
+**日本語**: 呼び出し元(realdata.pro の `Search/Health`、`diet_crawl.py` の `Search/Search`、aruaru-llm の `Llm/…`)も Connect へ。VPS 反映済み(realdata.pro・open-upstream-watch も入れ替え済み、旧バイナリは `.before-…`)。Baidu の `rev` を 2 に、`ok()` の二重変換を廃止(`d26a750`)。テスト 45 件成功。方針は POLICY.md。
+**English**: Callers (realdata.pro `Search/Health`, `diet_crawl.py` `Search/Search`, aruaru-llm `Llm/…`) moved to Connect. Deployed on the VPS (realdata.pro and open-upstream-watch swapped too; old binaries kept as `.before-…`). Baidu `rev` raised to 2; `ok()` double conversion removed (`d26a750`). 45 tests pass. See POLICY.md.
