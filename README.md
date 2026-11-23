@@ -261,3 +261,7 @@ Reading into `serde_json::Value` gives almost no speed-up even with SIMD (188 ms
 ## 完成(2026-11-24) / Done
 **日本語**: REST 全廃は完了。aruaru-search は Connect(POST、RS-JSON)と `GET /healthz`(例外)だけを提供し、VPS で稼働中。呼び出し元(aruaru-llm・open-upstream-watch・realdata.pro・`diet_crawl.py`・`maid-cafe-programming-school` の拡張機能)も Connect。試験は 50 件成功。
 **English**: REST abolition is complete. aruaru-search serves only Connect (POST, RS-JSON) plus `GET /healthz` (exception), running on the VPS. All callers (aruaru-llm, open-upstream-watch, realdata.pro, `diet_crawl.py`, the `maid-cafe-programming-school` extension) use Connect. 50 tests pass.
+
+## 2026-11-24 MediaSearch の探し直し / MediaSearch relaxation
+**日本語**: `Search/MediaSearch` は、0件のときだけ助詞・冠詞を除き後ろの語から減らして最大3回探し直す(`archive_org::search_relaxed`、試験 51 件成功、VPS 反映済み)。拡張機能 v0.1.1 の既定の検索語 `lo-fi piano` は実測で 3 件(全て再生可能)。
+**English**: When `Search/MediaSearch` finds nothing, it retries up to 3 times with stop words removed and trailing words dropped (`archive_org::search_relaxed`; 51 tests pass; deployed). The extension v0.1.1's default prompt `lo-fi piano` measured 3 playable hits.

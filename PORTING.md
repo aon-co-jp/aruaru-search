@@ -67,3 +67,7 @@
 ## 2026-11-24 完成の確認 / Completion check
 **日本語**: VPS の経路を実測(`/v1/search`・`/v1/health` は404、`/healthz` は200、`Search/Health` は応答)。`cargo test` 50 件成功、拡張機能は `npm run compile` 成功。
 **English**: Measured on the VPS (`/v1/search` and `/v1/health` return 404, `/healthz` 200, `Search/Health` answers). `cargo test`: 50 pass; the extension compiles via `npm run compile`.
+
+## 2026-11-24 MediaSearch の探し直し / MediaSearch relaxation
+**日本語**: `Search/MediaSearch` は、0件のときだけ助詞・冠詞を除き後ろの語から減らして最大3回探し直す(`archive_org::search_relaxed`、試験 51 件成功、VPS 反映済み)。拡張機能 v0.1.1 の既定の検索語 `lo-fi piano` は実測で 3 件(全て再生可能)。
+**English**: When `Search/MediaSearch` finds nothing, it retries up to 3 times with stop words removed and trailing words dropped (`archive_org::search_relaxed`; 51 tests pass; deployed). The extension v0.1.1's default prompt `lo-fi piano` measured 3 playable hits.
