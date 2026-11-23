@@ -307,3 +307,7 @@ English: Features that use AI/LLMs follow the file above: short context, caps an
 ## 完成(2026-11-24) / Done
 **日本語**: REST 全廃・Connect 移行は完了(VPS 反映済み、`/v1/search`・`/v1/health` は404、`/healthz` は200)。試験 50 件成功、拡張機能は `npm run compile` 成功。未実施として残すもの: 拡張機能の再パッケージ・公開(利用者側の更新が済むまで旧版は aruaru-llm の旧 REST で 404)、VS Code 上での実機操作。
 **English**: REST abolition and the Connect migration are complete (deployed; `/v1/search` and `/v1/health` return 404, `/healthz` 200). 50 tests pass; the extension compiles with `npm run compile`. Left undone: repackaging/publishing the extension (old versions get 404 from aruaru-llm's old REST until users update) and hands-on checks inside VS Code.
+
+## 2026-11-24 MediaSearch の探し直し / MediaSearch relaxation
+**日本語**: `Search/MediaSearch` は、0件のときだけ助詞・冠詞を除き後ろの語から減らして最大3回探し直す(`archive_org::search_relaxed`、試験 51 件成功、VPS 反映済み)。拡張機能 v0.1.1 の既定の検索語 `lo-fi piano` は実測で 3 件(全て再生可能)。
+**English**: When `Search/MediaSearch` finds nothing, it retries up to 3 times with stop words removed and trailing words dropped (`archive_org::search_relaxed`; 51 tests pass; deployed). The extension v0.1.1's default prompt `lo-fi piano` measured 3 playable hits.

@@ -19,3 +19,7 @@
 ## 追記(2026-11-24) / Addendum
 - **日本語**: 呼び出し元を増やすときも REST は使わない。旧 REST を呼んでいる所を見つけたら、その場で Connect へ移す。確認は「VPS の実測(旧パスが404か)」と「`cargo test`」で行う。
 - **English**: Never use REST when adding callers. If a caller of an old REST route is found, move it to Connect right away. Verify by measuring on the VPS (old paths return 404) and by `cargo test`.
+
+## 2026-11-24 MediaSearch の探し直し / MediaSearch relaxation
+**日本語**: `Search/MediaSearch` は、0件のときだけ助詞・冠詞を除き後ろの語から減らして最大3回探し直す(`archive_org::search_relaxed`、試験 51 件成功、VPS 反映済み)。拡張機能 v0.1.1 の既定の検索語 `lo-fi piano` は実測で 3 件(全て再生可能)。
+**English**: When `Search/MediaSearch` finds nothing, it retries up to 3 times with stop words removed and trailing words dropped (`archive_org::search_relaxed`; 51 tests pass; deployed). The extension v0.1.1's default prompt `lo-fi piano` measured 3 playable hits.
