@@ -59,3 +59,7 @@
 ## 2026-11-22 完成 / Completion
 **日本語**: 呼び出し元(realdata.pro の `Search/Health`、`diet_crawl.py` の `Search/Search`、aruaru-llm の `Llm/…`)も Connect へ。VPS 反映済み(realdata.pro・open-upstream-watch も入れ替え済み、旧バイナリは `.before-…`)。Baidu の `rev` を 2 に、`ok()` の二重変換を廃止(`d26a750`)。テスト 45 件成功。方針は POLICY.md。
 **English**: Callers (realdata.pro `Search/Health`, `diet_crawl.py` `Search/Search`, aruaru-llm `Llm/…`) moved to Connect. Deployed on the VPS (realdata.pro and open-upstream-watch swapped too; old binaries kept as `.before-…`). Baidu `rev` raised to 2; `ok()` double conversion removed (`d26a750`). 45 tests pass. See POLICY.md.
+
+## 2026-11-24 REST 全廃の最終確認 / Final check: REST is gone
+**日本語**: aruaru-search 自身の経路は Connect(POST)と `GET /healthz`(ヘルスチェック、規格上の例外)のみ。画面(`web_index.html`)も Connect 呼び出し。残っていた呼び出し元 `maid-cafe-programming-school` の拡張機能(aruaru-llm の旧 REST、VPS では 404)も Connect へ移した。
+**English**: aruaru-search itself serves only Connect (POST) plus `GET /healthz` (health-check exception); its web page also uses Connect. The last remaining caller, the `maid-cafe-programming-school` extension (aruaru-llm's old REST, 404 on the VPS), moved to Connect as well.
