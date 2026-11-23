@@ -63,3 +63,7 @@
 ## 2026-11-24 REST 全廃の最終確認 / Final check: REST is gone
 **日本語**: aruaru-search 自身の経路は Connect(POST)と `GET /healthz`(ヘルスチェック、規格上の例外)のみ。画面(`web_index.html`)も Connect 呼び出し。残っていた呼び出し元 `maid-cafe-programming-school` の拡張機能(aruaru-llm の旧 REST、VPS では 404)も Connect へ移した。
 **English**: aruaru-search itself serves only Connect (POST) plus `GET /healthz` (health-check exception); its web page also uses Connect. The last remaining caller, the `maid-cafe-programming-school` extension (aruaru-llm's old REST, 404 on the VPS), moved to Connect as well.
+
+## 2026-11-24 完成の確認 / Completion check
+**日本語**: VPS の経路を実測(`/v1/search`・`/v1/health` は404、`/healthz` は200、`Search/Health` は応答)。`cargo test` 50 件成功、拡張機能は `npm run compile` 成功。
+**English**: Measured on the VPS (`/v1/search` and `/v1/health` return 404, `/healthz` 200, `Search/Health` answers). `cargo test`: 50 pass; the extension compiles via `npm run compile`.

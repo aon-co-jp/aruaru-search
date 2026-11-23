@@ -257,3 +257,7 @@ Reading into `serde_json::Value` gives almost no speed-up even with SIMD (188 ms
 ## Connect 移行の完了 / Connect migration complete (2026-11-22)
 **日本語**: REST は全廃し、すべて Connect(POST、RS-JSON)になりました。VPS に反映済みで、呼び出し元(aruaru-llm・open-upstream-watch・realdata.pro・`diet_crawl.py`)も移行済みです。方針は [POLICY.md](POLICY.md)。
 **English**: REST is gone; everything is Connect (POST, RS-JSON). Deployed on the VPS, and the callers (aruaru-llm, open-upstream-watch, realdata.pro, `diet_crawl.py`) are migrated. See [POLICY.md](POLICY.md).
+
+## 完成(2026-11-24) / Done
+**日本語**: REST 全廃は完了。aruaru-search は Connect(POST、RS-JSON)と `GET /healthz`(例外)だけを提供し、VPS で稼働中。呼び出し元(aruaru-llm・open-upstream-watch・realdata.pro・`diet_crawl.py`・`maid-cafe-programming-school` の拡張機能)も Connect。試験は 50 件成功。
+**English**: REST abolition is complete. aruaru-search serves only Connect (POST, RS-JSON) plus `GET /healthz` (exception), running on the VPS. All callers (aruaru-llm, open-upstream-watch, realdata.pro, `diet_crawl.py`, the `maid-cafe-programming-school` extension) use Connect. 50 tests pass.

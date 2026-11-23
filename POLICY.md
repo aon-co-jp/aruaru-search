@@ -15,3 +15,7 @@
 - **Be gentle on sources**: keep intervals, post-refusal cooldowns and caching. Cooled-down engines are probed with a fixed harmless query; challenge pages are never bypassed. Engines forbidden by `robots.txt` or bot-detected are not used.
 - **Deployment**: no heavy builds on the VPS. Build in WSL, check glibc ≤ 2.39 with `objdump -T`, then `scp`. Keep the old binary as `.before-…`, verify a real search before and after the swap, and roll back on failure.
 - **Secrets**: never print or commit tokens or passwords.
+
+## 追記(2026-11-24) / Addendum
+- **日本語**: 呼び出し元を増やすときも REST は使わない。旧 REST を呼んでいる所を見つけたら、その場で Connect へ移す。確認は「VPS の実測(旧パスが404か)」と「`cargo test`」で行う。
+- **English**: Never use REST when adding callers. If a caller of an old REST route is found, move it to Connect right away. Verify by measuring on the VPS (old paths return 404) and by `cargo test`.
