@@ -150,7 +150,7 @@ pub fn routes(route: Route, ctx: Arc<Ctx>) -> Route {
                         Ok(i) => i,
                         Err(r) => return r,
                     };
-                    match archive_org::search(&i.q, i.n.unwrap_or(10)).await {
+                    match archive_org::search_relaxed(&i.q, i.n.unwrap_or(10)).await {
                         Ok(hits) => ok(&serde_json::json!({ "results": hits })),
                         Err(e) => fail("unavailable", &format!("{e:#}")),
                     }

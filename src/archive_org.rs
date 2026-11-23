@@ -114,6 +114,55 @@ fn client() -> Result<reqwest::Client> {
         .context("HTTP クライアントを作れません")
 }
 
+/// 文章のような検索語(「gentle lo-fi piano melody for studying」など)は、全部の語を含む音源が
+/// 無く 0 件になりがち。0 件のときだけ、助詞・冠詞を除き、後ろの語から順に減らした検索語を
+/// 最大 `RELAX_MAX` 個まで作る(archive.org への追加の問い合わせは、この回数を超えない)。
+const RELAX_MAX: usize = 3;
+const STOP_WORDS: &[&str] = &[
+    "a", "an", "the", "for", "of", "to", "and", "or", "in", "on", "with", "by", "music", "song", "songs",
+];
+
+pub fn relaxed_queries(q: &str) -> Vec<String> {
+    let words: Vec<&str> = q.split_whitespace().collect();
+    if words.len() < 2 {
+        return Vec::new();
+    }
+    let mut out: Vec<String> = Vec::new();
+    let mut push = |v: Vec<&str>| {
+        let s = v.join(" ");
+        if !s.is_empty() && s != q.trim() && !out.contains(&s) && out.len() < RELAX_MAX {
+            out.push(s);
+        }
+    };
+    let kept: Vec<&str> = words
+        .iter()
+        .copied()
+        .filter(|w| !STOP_WORDS.contains(&w.to_lowercase().as_str()))
+        .collect();
+    push(kept.clone());
+    let mut cur = kept;
+    while cur.len() > 1 {
+        cur.pop();
+        push(cur.clone());
+    }
+    out
+}
+
+/// `search` で 0 件のときだけ、`relaxed_queries` の順に緩めて探し直す。
+pub async fn search_relaxed(q: &str, n: usize) -> Result<Vec<MediaHit>> {
+    let hits = search(q, n).await?;
+    if !hits.is_empty() {
+        return Ok(hits);
+    }
+    for r in relaxed_queries(q) {
+        let hits = search(&r, n).await?;
+        if !hits.is_empty() {
+            return Ok(hits);
+        }
+    }
+    Ok(Vec::new())
+}
+
 /// 曲名・演奏者・作曲者・レーベル名などで archive.org を検索し、許可されたライセンスの音源だけを返す。
 /// `mediatype` は既定 `audio`(動画も含めたければ呼び出し側で変える余地を残すが、現状は音声専用)。
 pub async fn search(q: &str, n: usize) -> Result<Vec<MediaHit>> {
@@ -220,6 +269,16 @@ pub async fn stream_url_for(http: &reqwest::Client, identifier: &str) -> Result<
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn relaxed_queries_drop_stop_words_then_trailing_words() {
+        let r = relaxed_queries("gentle lo-fi piano melody for studying");
+        assert_eq!(r[0], "gentle lo-fi piano melody studying");
+        assert_eq!(r.len(), 3);
+        assert_eq!(r[1], "gentle lo-fi piano melody");
+        assert!(relaxed_queries("Caruso").is_empty());
+        assert!(relaxed_queries("  ").is_empty());
+    }
+
     use super::*;
 
     #[test]
