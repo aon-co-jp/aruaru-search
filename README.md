@@ -1,3 +1,5 @@
+> Latest translations / 翻訳の最新版: [0-LATEST-TRANSLATIONS.md](0-LATEST-TRANSLATIONS.md)
+
 # aruaru-search
 
 **Rust 製の自前メタ検索。APIキー不要・VPS で完全無料。** / *Self-hosted, key-free meta-search engine in Rust.*
