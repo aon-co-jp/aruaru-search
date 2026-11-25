@@ -1,3 +1,3 @@
 source: aon-co-jp/aruaru-search
-commit: 375da1ddcdc22867400cade8fe9b5872a9d0d379
-updated: 2026-11-24T10:37:40Z
+commit: 9aee383e29dc5927d2075604230ca135b67bd6a1
+updated: 2026-11-25T04:57:06Z
