@@ -294,7 +294,7 @@ pub fn load_engines(dir: &Path) -> Vec<EngineDef> {
 async fn ask_ai(http: &reqwest::Client, llm_base: &str, prompt: &str) -> Result<String> {
     let resp = http
         .post(format!(
-            "{}/aruaru_llm.v1.Llm/ChatProvidersCompletePriority",
+            "{}/aruaru_llm.Llm/ChatProvidersCompletePriority",
             llm_base.trim_end_matches('/')
         ))
         .header("x-tenant", "aruaru-search")
