@@ -27,10 +27,10 @@ Google 検索 API の無料枠(1日100件)に頼らず、複数の検索元(Bing
 ```bash
 bash scripts/fetch-deps.sh          # deps.lock どおりに RPoem 等を .deps/ へ取得
 cargo run --release                 # 127.0.0.1:4610 で待受
-curl -X POST -H "content-type: application/json" -d '{"q":"山梨県 温泉","hl":"ja","n":10}' http://127.0.0.1:4610/aruaru_search.v1.Search/Search
+curl -X POST -H "content-type: application/json" -d '{"q":"山梨県 温泉","hl":"ja","n":10}' http://127.0.0.1:4610/aruaru_search.Search/Search
 ```
 
-API は **Connect の単純呼び出し**(`POST /aruaru_search.v1.<Service>/<Method>`、`content-type: application/json`、本文は JSON、エラーは `{"code","message"}`)。2026-11-04に REST から移行した。
+API は **Connect の単純呼び出し**(`POST /aruaru_search.<Service>/<Method>`、`content-type: application/json`、本文は JSON、エラーは `{"code","message"}`)。2026-11-04に REST から移行した。
 
 | メソッド | 内容 |
 |---|---|
@@ -71,14 +71,14 @@ archive.org は構造化された JSON の検索 API(`advancedsearch.php`)とメ
 - 上位の結果だけ、メタデータ API(`metadata/<identifier>`)からファイル一覧を取得し、
   再生可能な音声ファイル(mp3 → Ogg Vorbis → FLAC の順で優先)の直接ダウンロード URL を
   `stream_url` として埋める(全件で行うと重いため上位のみ)。
-- 実機確認例: `curl -XPOST -H 'content-type: application/json' -d '{"q":"Caruso","n":5}' http://127.0.0.1:4610/aruaru_search.v1.Search/MediaSearch`(Connect、POST、RS-JSON) で、
+- 実機確認例: `curl -XPOST -H 'content-type: application/json' -d '{"q":"Caruso","n":5}' http://127.0.0.1:4610/aruaru_search.Search/MediaSearch`(Connect、POST、RS-JSON) で、
   Enrico Caruso のパブリックドメイン録音(1908〜1919年、`publicdomain/mark`)が
   ストリーミング URL 付きで返ることを確認済み(2026-09-27)。
 
 ## 休止からの自動再開
 
 検索元が拒否・混雑・ネットワーク障害で休止しても、**時刻が来ると固定の無害な語で探りの検索を投げ、成功すれば休止の途中でも即復帰**します
-(失敗なら指数バックオフ、休止の理由=拒否/429/ネットワークで長さを変えます)。`POST /aruaru_search.v1.Search/Health` の各検索元に
+(失敗なら指数バックオフ、休止の理由=拒否/429/ネットワークで長さを変えます)。`POST /aruaru_search.Search/Health` の各検索元に
 `cooldown_reason`・`next_probe_secs`・`last_probe` が出ます。詳細は `CLAUDE.md`。
 
 ## 注意
