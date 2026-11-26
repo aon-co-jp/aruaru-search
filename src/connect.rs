@@ -1,6 +1,6 @@
 //! Connect の「単純呼び出し(unary)」で受ける API(2026-11-04、REST から移行)。
 //!
-//! 形式は `POST /aruaru_search.v1.<Service>/<Method>`、本文は JSON(`content-type: application/json`)。
+//! 形式は `POST /aruaru_search.<Service>/<Method>`、本文は JSON(`content-type: application/json`)。
 //! 読み込みは RS-JSON の `from_str_secure`(サイズ・深さ・重複キーの上限つき)、書き出しは `rust_json::fast`。
 //! エラーは Connect の形式 `{"code": "...", "message": "..."}`。
 //!
@@ -112,7 +112,7 @@ pub fn routes(route: Route, ctx: Arc<Ctx>) -> Route {
     let (c1, c2, c3, c4, c5) = (ctx.clone(), ctx.clone(), ctx.clone(), ctx.clone(), ctx);
     route
         .at(
-            "/aruaru_search.v1.Search/Search",
+            "/aruaru_search.Search/Search",
             post(handler_fn(move |req: Request, _p| {
                 let ctx = c1.clone();
                 async move {
@@ -139,7 +139,7 @@ pub fn routes(route: Route, ctx: Arc<Ctx>) -> Route {
             })),
         )
         .at(
-            "/aruaru_search.v1.Search/MediaSearch",
+            "/aruaru_search.Search/MediaSearch",
             post(handler_fn(move |req: Request, _p| {
                 let ctx = c2.clone();
                 async move {
@@ -158,7 +158,7 @@ pub fn routes(route: Route, ctx: Arc<Ctx>) -> Route {
             })),
         )
         .at(
-            "/aruaru_search.v1.Search/Engines",
+            "/aruaru_search.Search/Engines",
             post(handler_fn(move |_req: Request, _p| {
                 let ctx = c3.clone();
                 async move {
@@ -169,14 +169,14 @@ pub fn routes(route: Route, ctx: Arc<Ctx>) -> Route {
             })),
         )
         .at(
-            "/aruaru_search.v1.Search/Health",
+            "/aruaru_search.Search/Health",
             post(handler_fn(move |_req: Request, _p| {
                 let ctx = c4.clone();
                 async move { ok(&ctx.searcher.health()) }
             })),
         )
         .at(
-            "/aruaru_search.v1.Admin/SelfCheck",
+            "/aruaru_search.Admin/SelfCheck",
             post(handler_fn(move |req: Request, _p| {
                 let ctx = c5.clone();
                 async move {

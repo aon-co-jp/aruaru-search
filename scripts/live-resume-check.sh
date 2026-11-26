@@ -12,7 +12,7 @@ PID=$!
 cleanup() { kill $PID 2>/dev/null; cp /etc/hosts.bak-live /etc/hosts; rm -f /etc/hosts.bak-live; }
 trap cleanup EXIT
 sleep 2
-call() { curl -s -X POST -H 'content-type: application/json' -d "${2:-{\}}" http://127.0.0.1:$PORT/aruaru_search.v1.Search/$1; }
+call() { curl -s -X POST -H 'content-type: application/json' -d "${2:-{\}}" http://127.0.0.1:$PORT/aruaru_search.Search/$1; }
 hn() { call Health | sed 's/},{/}\n{/g' | grep '"id":"hackernews"'; }
 echo "== 検索(hackernews は接続失敗になる)"
 call Search '{"q":"rust","hl":"en","gl":"US"}' | cut -c1-200; echo

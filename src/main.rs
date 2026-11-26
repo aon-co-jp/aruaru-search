@@ -1,7 +1,7 @@
 //! aruaru-search: Rust 製の自前メタ検索。APIキー不要・VPS で完全無料。
 //!
 //! RPoem(`open-runo-poem-compat`)の上で JSON の検索 API を提供する。
-//! Connect(`POST /aruaru_search.v1.<Service>/<Method>`、JSON)で提供する。詳細は `connect.rs`。
+//! Connect(`POST /aruaru_search.<Service>/<Method>`、JSON)で提供する。詳細は `connect.rs`。
 //! - `Search/Search`・`Search/MediaSearch`・`Search/Engines`・`Search/Health`・`Admin/SelfCheck`
 //! - `GET /healthz`
 //!
@@ -149,7 +149,7 @@ async fn main() -> std::io::Result<()> {
         }
     });
     let (addr, handle) = Server::new(TcpListener::bind(bind)).run(app(ctx)).await?;
-    println!("aruaru-search: http://{addr}/ で待受中(Connect: POST /aruaru_search.v1.Search/Search)");
+    println!("aruaru-search: http://{addr}/ で待受中(Connect: POST /aruaru_search.Search/Search)");
     tokio::select! {
         _ = handle => {}
         _ = tokio::signal::ctrl_c() => println!("aruaru-search: 終了します"),

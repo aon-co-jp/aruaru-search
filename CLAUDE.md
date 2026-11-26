@@ -82,7 +82,7 @@ CC-BY-SA の音源だけを即時ストリーミング可能な形(`stream_url`)
 既存の `engine.rs`(HTML 解析前提)には混ぜず、`src/archive_org.rs` に専用モジュールとして
 実装した(archive.org は構造化 JSON API を持つため)。ライセンスの絞り込みは
 `is_allowed_license()` でこちら側が厳密に行う(archive.org 自体は CC-BY-NC 等の非商用限定
-音源も検索結果に含むため)。実機で `curl -XPOST -H 'content-type: application/json' -d '{"q":"Caruso","n":5}' http://127.0.0.1:4610/aruaru_search.v1.Search/MediaSearch`
+音源も検索結果に含むため)。実機で `curl -XPOST -H 'content-type: application/json' -d '{"q":"Caruso","n":5}' http://127.0.0.1:4610/aruaru_search.Search/MediaSearch`
 を確認し、Enrico Caruso のパブリックドメイン録音がストリーミング URL 付きで返ることを確認済み。
 
 - VPS へ反映済み(2026-11-05、Connect 版 `38d6e3a`)。aruaru-llm の `Llm/MediaSearch` 経由でも実機確認済み。`open-bar`/`open-music-llm`

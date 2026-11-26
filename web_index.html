@@ -30,7 +30,7 @@ sel.value=pick?pick.value:'ja';
 $('f').onsubmit=async e=>{
   e.preventDefault(); const out=$('out'); out.textContent='…';
   try{
-    const r=await fetch('/aruaru_search.v1.Search/Search',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:$('q').value,hl:sel.value,n:15})});
+    const r=await fetch('/aruaru_search.Search/Search',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:$('q').value,hl:sel.value,n:15})});
     const d=await r.json(); out.textContent='';
     if(d.code){const p=document.createElement('p');p.className='err';p.textContent=d.message;out.append(p);return}
     for(const x of d.results){
